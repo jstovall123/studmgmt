@@ -39,18 +39,16 @@ ssh root@your-server-ip
 ssh your-user@your-server-ip
 ```
 
-### Step 2: Upload Installation Files
+### Step 2: Clone Repository
 
-From your **local machine**:
+On the **server**:
 
 ```bash
-# Copy all project files to server
-scp -r /Users/jamesstovall/Cursor\ Projects/sebo-project/* root@your-server-ip:/tmp/studmgmt/
+# Clone the repository directly to /opt/studmgmt
+git clone https://github.com/jstovall123/studmgmt.git /opt/studmgmt
 
-# Or clone from git if you have a repo
-ssh root@your-server-ip
-git clone your-repo-url /tmp/studmgmt
-cd /tmp/studmgmt
+# Navigate to the directory
+cd /opt/studmgmt
 ```
 
 ### Step 3: Run Installation Script
@@ -58,7 +56,6 @@ cd /tmp/studmgmt
 On the **server**, as root:
 
 ```bash
-cd /tmp/studmgmt
 sudo bash install-linux.sh
 ```
 

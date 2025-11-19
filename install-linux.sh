@@ -77,27 +77,41 @@ echo -e "${YELLOW}🐍 Step 4: Creating Python virtual environment...${NC}"
 sudo -u "$APP_USER" python3 -m venv "$VENV_DIR"
 echo -e "${GREEN}✓ Virtual environment created at $VENV_DIR${NC}"
 
-# Step 5: Get the application files
-echo -e "${YELLOW}📂 Step 5: Setting up application files...${NC}"
+# Step 5: Verify application files
+echo -e "${YELLOW}📂 Step 5: Verifying application files...${NC}"
 
-# Copy app.py and templates if they exist in current directory
-if [ -f "app.py" ]; then
-    cp app.py "$INSTALL_DIR/"
-    chown "$APP_USER:$APP_GROUP" "$INSTALL_DIR/app.py"
-    echo -e "${GREEN}✓ app.py copied${NC}"
+# Check if files already exist in INSTALL_DIR (cloned from git)
+if [ -f "$INSTALL_DIR/app.py" ]; then
+    echo -e "${GREEN}✓ app.py already in place${NC}"
+else
+    # Try to copy from current directory if running from staging
+    if [ -f "app.py" ]; then
+        cp app.py "$INSTALL_DIR/"
+        echo -e "${GREEN}✓ app.py copied${NC}"
+    fi
 fi
 
-if [ -f "requirements.txt" ]; then
-    cp requirements.txt "$INSTALL_DIR/"
-    chown "$APP_USER:$APP_GROUP" "$INSTALL_DIR/requirements.txt"
-    echo -e "${GREEN}✓ requirements.txt copied${NC}"
+if [ -f "$INSTALL_DIR/requirements.txt" ]; then
+    echo -e "${GREEN}✓ requirements.txt already in place${NC}"
+else
+    if [ -f "requirements.txt" ]; then
+        cp requirements.txt "$INSTALL_DIR/"
+        echo -e "${GREEN}✓ requirements.txt copied${NC}"
+    fi
 fi
 
-if [ -d "templates" ]; then
-    cp -r templates "$INSTALL_DIR/"
-    chown -R "$APP_USER:$APP_GROUP" "$INSTALL_DIR/templates"
-    echo -e "${GREEN}✓ templates/ copied${NC}"
+if [ -d "$INSTALL_DIR/templates" ]; then
+    echo -e "${GREEN}✓ templates/ already in place${NC}"
+else
+    if [ -d "templates" ]; then
+        cp -r templates "$INSTALL_DIR/"
+        echo -e "${GREEN}✓ templates/ copied${NC}"
+    fi
 fi
+
+# Fix permissions on all app files
+chown -R "$APP_USER:$APP_GROUP" "$INSTALL_DIR"
+echo -e "${GREEN}✓ Permissions set correctly${NC}"
 
 # Step 6: Install Python dependencies
 echo -e "${YELLOW}📚 Step 6: Installing Python dependencies...${NC}"

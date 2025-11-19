@@ -11,34 +11,39 @@ Your application is now ready for automated deployment to a Linux server with:
 
 ## 🚀 Quick Start (3 Steps)
 
-### Step 1: Copy Files to Server
-
-From your local machine:
-
-```bash
-cd /Users/jamesstovall/Cursor\ Projects/sebo-project
-scp -r * root@your-linode-ip:/tmp/studmgmt/
-```
-
-### Step 2: Run Installation
-
-On your server:
+### Step 1: SSH to Server
 
 ```bash
 ssh root@your-linode-ip
-cd /tmp/studmgmt
+```
+
+### Step 2: Clone & Install
+
+```bash
+# Clone repository
+git clone https://github.com/jstovall123/studmgmt.git /opt/studmgmt
+
+# Navigate to directory
+cd /opt/studmgmt
+
+# Run installation
 sudo bash install-linux.sh
 ```
 
-### Step 3: Configure & Restart
+### Step 3: Configure & Access
 
 ```bash
-sudo nano /opt/studmgmt/.env
 # Add your Gemini API key
+sudo nano /opt/studmgmt/.env
+# Edit and save
+
+# Restart service
 sudo systemctl restart studmgmt.service
+
+# Access at http://your-server-ip
 ```
 
-**Done!** Access at `http://your-server-ip`
+**Done!** Your app is live!
 
 ---
 

@@ -79,35 +79,34 @@ When you run `install-linux.sh`, it automatically:
 
 ## 🚀 How to Deploy
 
-### Step 1: Prepare Files
-
-On your **local machine**:
-
-```bash
-cd /Users/jamesstovall/Cursor\ Projects/sebo-project
-# Files are already ready!
-```
-
-### Step 2: Copy to Server
-
-```bash
-scp -r * root@your-linode-ip:/tmp/studmgmt/
-```
-
-Or if you have git:
-
-```bash
-ssh root@your-linode-ip
-git clone your-repo /opt/studmgmt
-cd /opt/studmgmt
-```
-
-### Step 3: Run Installation
+### The Simple Way (Recommended)
 
 On **your server**:
 
 ```bash
-cd /tmp/studmgmt
+# Clone repository directly to /opt/studmgmt
+git clone https://github.com/jstovall123/studmgmt.git /opt/studmgmt
+
+# Navigate to directory
+cd /opt/studmgmt
+
+# Run installation script
+sudo bash install-linux.sh
+```
+
+That's it! The script will automatically detect the cloned files and complete the setup.
+
+### Alternative: Copy Files
+
+If you prefer to copy instead of git clone:
+
+```bash
+# On your local machine
+scp -r /Users/jamesstovall/Cursor\ Projects/sebo-project/* root@your-server-ip:/opt/studmgmt/
+
+# On your server
+ssh root@your-server-ip
+cd /opt/studmgmt
 sudo bash install-linux.sh
 ```
 

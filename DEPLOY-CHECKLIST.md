@@ -20,45 +20,29 @@ Use this checklist to deploy to your Linux server at `/opt/studmgmt/`.
   ssh root@your-server-ip
   ```
 
-- [ ] Update system (optional but recommended):
-  ```bash
-  apt-get update && apt-get upgrade -y
-  ```
-
 ---
 
-## 📦 Copy Installation Files
+## 📦 Clone Repository
 
-From **your local machine**:
-
-```bash
-# Navigate to project directory
-cd /Users/jamesstovall/Cursor\ Projects/sebo-project
-
-# Copy everything to server
-scp -r * root@your-server-ip:/tmp/studmgmt/
-```
-
-Or create a directory:
+On **your server**:
 
 ```bash
-# Create staging directory on server
-ssh root@your-server-ip mkdir -p /tmp/studmgmt
+# Clone the repository
+git clone https://github.com/jstovall123/studmgmt.git /opt/studmgmt
 
-# Then copy files
-scp -r /Users/jamesstovall/Cursor\ Projects/sebo-project/* root@your-server-ip:/tmp/studmgmt/
+# Navigate to directory
+cd /opt/studmgmt
 ```
 
-- [ ] Files copied to `/tmp/studmgmt/`
+- [ ] Repository cloned to `/opt/studmgmt/`
 
 ---
 
 ## 🚀 Run Installation
 
-On **your server**, as root:
+On **your server**:
 
 ```bash
-cd /tmp/studmgmt
 sudo bash install-linux.sh
 ```
 
@@ -66,10 +50,9 @@ The script will:
 
 - [ ] Update system packages
 - [ ] Install Python, Nginx, dependencies
-- [ ] Create `/opt/studmgmt/` directory
 - [ ] Create `studmgmt` system user
 - [ ] Set up Python virtual environment
-- [ ] Copy application files
+- [ ] Verify application files are in place
 - [ ] Install Python packages
 - [ ] Create systemd service
 - [ ] Configure Nginx
