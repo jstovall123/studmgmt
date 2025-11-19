@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Music Progress Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- SheetJS for Excel import -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <!-- Custom Fonts: Montserrat for headings, Comfortaa for body -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@400;700&family=Montserrat:wght@700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Comfortaa', sans-serif;
+            background-color: #fff6eb;
+        }
+        h1, h2, h3, h4, h5, h6, .font-heading {
+            font-family: 'Montserrat', sans-serif;
+            color: #103a52;
+        }
+        .container-card {
+            background: white;
+            border-radius: 1.5rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+        }
+        .loading-ring {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #103a52;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .prose {
+            font-family: 'Comfortaa', sans-serif;
+            color: #374151;
+            line-height: 1.65;
+        }
+        .prose h1, .prose h2, .prose h3 {
+            font-family: 'Montserrat', sans-serif;
+            color: #103a52;
+            font-weight: 700;
+            margin-top: 1.5em;
+            margin-bottom: 0.5em;
+        }
+        .prose h1 { font-size: 1.875rem; }
+        .prose h2 { font-size: 1.5rem; }
+        .prose h3 { font-size: 1.25rem; }
+        .prose p {
+            margin-top: 1em;
+            margin-bottom: 1em;
+        }
+        .prose ul, .prose ol {
+            margin-top: 1em;
+            margin-bottom: 1em;
+            padding-left: 1.5em;
+        }
+        .prose ul { list-style-type: disc; }
+        .prose ol { list-style-type: decimal; }
+        .prose li {
+            margin-top: 0.25em;
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-8">
+
+    <div class="max-w-7xl mx-auto">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-extrabold font-heading">Music Student Progress Tracker</h1>
+            <p class="text-gray-600 mt-2">Manage student assignments, generate song recommendations, and create 8-week lesson plans instantly.</p>
+            <p class="text-sm mt-1 text-gray-500">Local Version • Gemini AI Powered</p>
+        </header>
+
+        <!-- New Student Form -->
+        <section class="container-card p-6 mb-8">
+            <h2 class="text-2xl font-semibold mb-4 font-heading">Add New Student</h2>
+            <form id="add-student-form" class="grid grid-cols-1 md:grid-cols-7 gap-4 items-end">
+                <input type="text" id="student-name" required placeholder="Student Name" class="col-span-1 p-3 border border-gray-300 rounded-lg focus:ring-[#103a52] focus:border-[#103a52]">
+                <input type="number" id="student-age" placeholder="Age" class="col-span-1 p-3 border border-gray-300 rounded-lg focus:ring-[#103a52] focus:border-[#103a52]">
+                <input type="text" id="instrument" required placeholder="Instrument" class="col-span-1 p-3 border border-gray-300 rounded-lg focus:ring-[#103a52] focus:border-[#103a52]">
+                <select id="skill-level" required class="col-span-1 p-3 border border-gray-300 rounded-lg focus:ring-[#103a52] focus:border-[#103a52] bg-white">
+                    <option value="" disabled selected>Skill Level</option>
+                    <option value="Beginner">Beginner</option>
+                    <option value="Early Intermediate">Early Intermediate</option>
+                    <option value="Intermediate">Intermediate</option>
+                    <option value="Advanced Intermediate">Advanced Intermediate</option>
+                    <option value="Advanced">Advanced</option>
+                </select>
+                <textarea id="current-assignments" rows="1" required placeholder="Current Books & Pieces" class="col-span-1 p-3 border border-gray-300 rounded-lg focus:ring-[#103a52] focus:border-[#103a52] resize-none"></textarea>
+                <textarea id="current-goals" rows="1" placeholder="Current Goals (Optional)" class="col-span-1 p-3 border border-gray-300 rounded-lg focus:ring-[#103a52] focus:border-[#103a52] resize-none"></textarea>
+                <button type="submit" class="col-span-1 p-3 bg-[#fc4a4b] text-white font-bold rounded-lg hover:bg-[#e03a3b] transition duration-150 shadow-md">Add Student</button>
+            </form>
+        </section>
+
+        <!-- XLSX Import Section -->
+        <section class="container-card p-6 mb-8">
+            <h2 class="text-2xl font-semibold mb-4 font-heading">Import from .XLSX File</h2>
+            <div class="flex flex-col sm:flex-row gap-4">
+                <input type="file" id="xlsx-file-input" accept=".xlsx" class="flex-grow p-3 border border-gray-300 rounded-lg file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-[#fff6eb] file:text-[#103a52] hover:file:bg-[#fad9b0]">
+                <button id="import-button" class="p-3 bg-[#103a52] text-white font-bold rounded-lg hover:bg-[#0a283f] transition duration-150 shadow-md">Import Students</button>
+            </div>
+            <p id="import-status" class="text-sm text-gray-600 mt-2"></p>
+        </section>
+
+        <!-- Student List Table -->
+        <section class="container-card p-6">
+            <h2 class="text-2xl font-semibold mb-4 font-heading">Student Roster</h2>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead style="background-color: #fad9b0;">
+                        <tr>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-[#103a52] uppercase tracking-wider font-heading">Name</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-[#103a52] uppercase tracking-wider font-heading">Age</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-[#103a52] uppercase tracking-wider font-heading">Instrument / Level</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-[#103a52] uppercase tracking-wider font-heading">Assignments</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-[#103a52] uppercase tracking-wider font-heading">Goals</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-[#103a52] uppercase tracking-wider font-heading">Lesson Notes</th>
+                            <th class="px-3 py-3 text-left text-xs font-medium text-[#103a52] uppercase tracking-wider font-heading">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="student-list" class="bg-white divide-y divide-gray-200">
+                        <!-- Student rows will be injected here -->
+                    </tbody>
+                </table>
+                <p id="empty-list-message" class="text-center text-gray-500 p-8 hidden">No students added yet. Use the form above to begin tracking!</p>
+            </div>
+        </section>
+    </div>
+
+    <!-- Modal for Generated Content -->
+    <div id="content-modal" class="fixed inset-0 bg-gray-600 bg-opacity-75 hidden items-center justify-center p-4 z-50">
+        <div class="container-card w-full max-w-4xl p-8 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-start mb-4">
+                <h3 id="modal-title" class="text-2xl font-bold font-heading">Generated Content</h3>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600 transition duration-150">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            <div id="modal-content" class="prose max-w-none">
+                <!-- Content injected here -->
+            </div>
+            <div id="modal-actions" class="mt-6 text-right">
+                <!-- Regenerate button will be injected here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Alert Modal -->
+    <div id="alert-modal" class="fixed inset-0 bg-red-600 bg-opacity-75 hidden items-center justify-center p-4 z-50">
+        <div class="container-card w-full max-w-sm p-6 text-center">
+            <h3 class="text-xl font-bold text-red-700 mb-4 font-heading">Error</h3>
+            <p id="alert-message" class="text-gray-600 mb-6">An unknown error occurred.</p>
+            <button onclick="closeAlert()" class="p-2 w-full bg-red-500 text-white font-bold rounded-lg hover:bg-red-600 transition duration-150">Close</button>
+        </div>
+    </div>
+
+    <script>
+        // --- GLOBAL VARIABLES ---
+        let globalStudentsCache = {};
+
+        // --- UTILITY FUNCTIONS ---
+        window.showAlert = function(message) {
+            document.getElementById('alert-message').textContent = message;
+            document.getElementById('alert-modal').classList.remove('hidden');
+            document.getElementById('alert-modal').classList.add('flex');
+        }
+
+        window.closeAlert = function() {
+            document.getElementById('alert-modal').classList.add('hidden');
+            document.getElementById('alert-modal').classList.remove('flex');
+        }
+
+        window.showModal = function(title, contentHTML, actionsHTML = '') {
+            document.getElementById('modal-title').textContent = title;
+            document.getElementById('modal-content').innerHTML = contentHTML;
+            document.getElementById('modal-actions').innerHTML = actionsHTML;
+            document.getElementById('content-modal').classList.remove('hidden');
+            document.getElementById('content-modal').classList.add('flex');
+        }
+
+        window.closeModal = function() {
+            document.getElementById('content-modal').classList.add('hidden');
+            document.getElementById('content-modal').classList.remove('flex');
+        }
+
+        window.escapeQuotes = function(str) {
+            if (typeof str !== 'string') return '';
+            return str.replace(/'/g, '&apos;').replace(/"/g, '&quot;');
+        }
+
+        // --- API CALLS ---
+        async function loadStudents() {
+            try {
+                const response = await fetch('/api/students');
+                if (!response.ok) throw new Error('Failed to load students');
+                const students = await response.json();
+                globalStudentsCache = students.reduce((acc, student) => {
+                    acc[student.id] = student;
+                    return acc;
+                }, {});
+                renderStudentList(students);
+            } catch (error) {
+                console.error('Error loading students:', error);
+                showAlert('Failed to load students');
+            }
+        }
+
+        // --- ADD STUDENT FORM ---
+        document.getElementById('add-student-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const name = document.getElementById('student-name').value.trim();
+            const age = document.getElementById('student-age').value.trim();
+            const instrument = document.getElementById('instrument').value.trim();
+            const level = document.getElementById('skill-level').value;
+            const assignments = document.getElementById('current-assignments').value.trim();
+            const goals = document.getElementById('current-goals').value.trim();
+
+            if (!name || !instrument || !level || !assignments) {
+                return showAlert("Please fill in all required fields.");
+            }
+
+            try {
+                const response = await fetch('/api/students', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name,
+                        age: age || null,
+                        instrument,
+                        skillLevel: level,
+                        currentAssignments: assignments,
+                        currentGoals: goals
+                    })
+                });
+
+                if (!response.ok) throw new Error('Failed to add student');
+                
+                this.reset();
+                document.getElementById('skill-level').value = '';
+                loadStudents();
+            } catch (error) {
+                console.error('Error adding student:', error);
+                showAlert('Failed to add student');
+            }
+        });
+
+        // --- RENDER STUDENT LIST ---
+        function renderStudentList(students) {
+            const list = document.getElementById('student-list');
+            list.innerHTML = '';
+            document.getElementById('empty-list-message').classList.toggle('hidden', students.length > 0);
+
+            students.forEach(student => {
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-50 transition duration-150';
+                row.id = `student-row-${student.id}`;
+                
+                const recs = JSON.parse(student.recommendations || '[]');
+                
+                row.innerHTML = `
+                    <!-- Display Mode -->
+                    <td id="name-display-${student.id}" class="px-3 py-4 whitespace-nowrap text-sm font-medium text-[#103a52]">${student.name}</td>
+                    <td id="age-display-${student.id}" class="px-3 py-4 whitespace-nowrap text-sm text-gray-500">${student.age || 'N/A'}</td>
+                    <td id="instrument-display-${student.id}" class="px-3 py-4 whitespace-nowrap text-sm text-gray-500">${student.instrument} / ${student.skillLevel}</td>
+                    <td id="assignments-display-${student.id}" class="px-3 py-4 text-sm text-gray-500 max-w-xs whitespace-pre-wrap">${student.currentAssignments}</td>
+                    <td id="goals-display-${student.id}" class="px-3 py-4 text-sm text-gray-500 max-w-xs whitespace-pre-wrap">${student.currentGoals}</td>
+                    <td id="history-display-${student.id}" class="px-3 py-4 text-sm text-gray-500 max-w-xs whitespace-pre-wrap">${student.lessonNoteHistory}</td>
+
+                    <!-- Edit Mode (hidden by default) -->
+                    <td id="name-edit-${student.id}" class="px-3 py-4 hidden"><input type="text" value="${escapeQuotes(student.name)}" class="w-full p-2 border rounded-lg"></td>
+                    <td id="age-edit-${student.id}" class="px-3 py-4 hidden"><input type="number" value="${student.age || ''}" class="w-20 p-2 border rounded-lg"></td>
+                    <td id="instrument-edit-${student.id}" class="px-3 py-4 hidden">
+                        <input type="text" value="${escapeQuotes(student.instrument)}" class="w-full p-2 border rounded-lg mb-2">
+                        <select class="w-full p-2 border rounded-lg bg-white">
+                            <option value="Beginner" ${student.skillLevel === 'Beginner' ? 'selected' : ''}>Beginner</option>
+                            <option value="Early Intermediate" ${student.skillLevel === 'Early Intermediate' ? 'selected' : ''}>Early Intermediate</option>
+                            <option value="Intermediate" ${student.skillLevel === 'Intermediate' ? 'selected' : ''}>Intermediate</option>
+                            <option value="Advanced Intermediate" ${student.skillLevel === 'Advanced Intermediate' ? 'selected' : ''}>Advanced Intermediate</option>
+                            <option value="Advanced" ${student.skillLevel === 'Advanced' ? 'selected' : ''}>Advanced</option>
+                        </select>
+                    </td>
+                    <td id="assignments-edit-${student.id}" class="px-3 py-4 hidden"><textarea rows="3" class="w-full p-2 border rounded-lg">${escapeQuotes(student.currentAssignments)}</textarea></td>
+                    <td id="goals-edit-${student.id}" class="px-3 py-4 hidden"><textarea rows="3" class="w-full p-2 border rounded-lg">${escapeQuotes(student.currentGoals)}</textarea></td>
+                    <td id="history-edit-${student.id}" class="px-3 py-4 hidden"><textarea rows="3" class="w-full p-2 border rounded-lg">${escapeQuotes(student.lessonNoteHistory)}</textarea></td>
+
+                    <!-- Action Buttons -->
+                    <td id="actions-${student.id}" class="px-3 py-4 whitespace-nowrap text-sm font-medium">
+                        <div class="flex flex-col space-y-2">
+                            <button onclick="window.editStudent('${student.id}')" class="w-full text-xs p-2 rounded-lg bg-[#103a52] text-white hover:bg-[#0a283f] transition">Edit</button>
+                            <button onclick="window.handleRecsClick('${student.id}')"
+                                class="w-full text-xs p-2 rounded-lg bg-[#fad9b0] text-[#103a52] hover:bg-[#f8c68c] transition">
+                                ${recs.length > 0 ? 'View/Regen Recs' : 'Generate Recs'}
+                            </button>
+                            <button onclick="window.handlePlanClick('${student.id}')"
+                                class="w-full text-xs p-2 rounded-lg bg-[#fc4a4b] text-white hover:bg-[#e03a3b] transition">
+                                ${student.lessonPlan ? 'View/Regen Plan' : 'Generate Plan'}
+                            </button>
+                            <button onclick="window.generateAndShowJourneyReport('${student.id}')"
+                                class="w-full text-xs p-2 rounded-lg bg-[#103a52] text-white hover:bg-[#0a283f] transition">
+                                ✨ Journey Report
+                            </button>
+                        </div>
+                    </td>
+                    <!-- Action Buttons - Edit Mode -->
+                    <td id="actions-edit-${student.id}" class="px-3 py-4 whitespace-nowrap text-sm font-medium hidden">
+                        <div class="flex flex-col space-y-2">
+                            <button onclick="window.saveStudent('${student.id}')" class="w-full text-xs p-2 rounded-lg bg-[#fc4a4b] text-white hover:bg-[#e03a3b] transition">Save</button>
+                            <button onclick="window.cancelEdit('${student.id}')" class="w-full text-xs p-2 rounded-lg bg-[#64748b] text-white hover:bg-[#586477] transition">Cancel</button>
+                        </div>
+                    </td>
+                `;
+                list.appendChild(row);
+            });
+        }
+
+        // --- EDIT FUNCTIONS ---
+        window.editStudent = function(studentId) {
+            document.getElementById(`name-display-${studentId}`).classList.add('hidden');
+            document.getElementById(`age-display-${studentId}`).classList.add('hidden');
+            document.getElementById(`instrument-display-${studentId}`).classList.add('hidden');
+            document.getElementById(`assignments-display-${studentId}`).classList.add('hidden');
+            document.getElementById(`goals-display-${studentId}`).classList.add('hidden');
+            document.getElementById(`history-display-${studentId}`).classList.add('hidden');
+            document.getElementById(`actions-${studentId}`).classList.add('hidden');
+            
+            document.getElementById(`name-edit-${studentId}`).classList.remove('hidden');
+            document.getElementById(`age-edit-${studentId}`).classList.remove('hidden');
+            document.getElementById(`instrument-edit-${studentId}`).classList.remove('hidden');
+            document.getElementById(`assignments-edit-${studentId}`).classList.remove('hidden');
+            document.getElementById(`goals-edit-${studentId}`).classList.remove('hidden');
+            document.getElementById(`history-edit-${studentId}`).classList.remove('hidden');
+            document.getElementById(`actions-edit-${studentId}`).classList.remove('hidden');
+        }
+
+        window.cancelEdit = function(studentId) {
+            document.getElementById(`name-display-${studentId}`).classList.remove('hidden');
+            document.getElementById(`age-display-${studentId}`).classList.remove('hidden');
+            document.getElementById(`instrument-display-${studentId}`).classList.remove('hidden');
+            document.getElementById(`assignments-display-${studentId}`).classList.remove('hidden');
+            document.getElementById(`goals-display-${studentId}`).classList.remove('hidden');
+            document.getElementById(`history-display-${studentId}`).classList.remove('hidden');
+            document.getElementById(`actions-${studentId}`).classList.remove('hidden');
+            
+            document.getElementById(`name-edit-${studentId}`).classList.add('hidden');
+            document.getElementById(`age-edit-${studentId}`).classList.add('hidden');
+            document.getElementById(`instrument-edit-${studentId}`).classList.add('hidden');
+            document.getElementById(`assignments-edit-${studentId}`).classList.add('hidden');
+            document.getElementById(`goals-edit-${studentId}`).classList.add('hidden');
+            document.getElementById(`history-edit-${studentId}`).classList.add('hidden');
+            document.getElementById(`actions-edit-${studentId}`).classList.add('hidden');
+        }
+
+        window.saveStudent = async function(studentId) {
+            const name = document.querySelector(`#name-edit-${studentId} input`).value.trim();
+            const age = document.querySelector(`#age-edit-${studentId} input`).value.trim();
+            const instrument = document.querySelector(`#instrument-edit-${studentId} input`).value.trim();
+            const skillLevel = document.querySelector(`#instrument-edit-${studentId} select`).value;
+            const assignments = document.querySelector(`#assignments-edit-${studentId} textarea`).value.trim();
+            const goals = document.querySelector(`#goals-edit-${studentId} textarea`).value.trim();
+            const history = document.querySelector(`#history-edit-${studentId} textarea`).value.trim();
+            
+            if (!name || !instrument || !skillLevel || !assignments) {
+                return showAlert("Name, Instrument, Skill Level, and Assignments are required.");
+            }
+            
+            try {
+                const response = await fetch(`/api/students/${studentId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name,
+                        age: age || null,
+                        instrument,
+                        skillLevel,
+                        currentAssignments: assignments,
+                        currentGoals: goals,
+                        lessonNoteHistory: history
+                    })
+                });
+
+                if (!response.ok) throw new Error('Failed to save student');
+                loadStudents();
+            } catch (error) {
+                console.error('Error saving student:', error);
+                showAlert('Failed to save student');
+            }
+        }
+
+        // --- XLSX IMPORT ---
+        document.getElementById('import-button').addEventListener('click', function() {
+            const fileInput = document.getElementById('xlsx-file-input');
+            const file = fileInput.files[0];
+            const statusEl = document.getElementById('import-status');
+            
+            if (!file) {
+                return showAlert("Please select an .xlsx file first.");
+            }
+
+            statusEl.textContent = "Importing, please wait...";
+            const reader = new FileReader();
+            
+            reader.onload = async function(e) {
+                try {
+                    const formData = new FormData();
+                    formData.append('file', file);
+
+                    const response = await fetch('/api/import-xlsx', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (!response.ok) throw new Error('Failed to import file');
+                    
+                    const result = await response.json();
+                    statusEl.textContent = `Successfully imported ${result.count} students.`;
+                    fileInput.value = '';
+                    loadStudents();
+                } catch (error) {
+                    console.error('Error importing file:', error);
+                    statusEl.textContent = "Error importing file.";
+                    showAlert('Error processing file. Check console for details.');
+                }
+            };
+            
+            reader.readAsArrayBuffer(file);
+        });
+
+        // --- RECOMMENDATIONS ---
+        window.handleRecsClick = function(studentId) {
+            const student = globalStudentsCache[studentId];
+            if (!student) return showAlert("Student data not found.");
+            
+            const recommendations = JSON.parse(student.recommendations || '[]');
+            
+            if (recommendations.length > 0) {
+                const tableHTML = formatRecommendationsToHTML(recommendations);
+                const actionsHTML = `<button onclick="window.generateAndShowRecommendations('${student.id}', true)" class="p-2 bg-[#fad9b0] text-[#103a52] font-bold rounded-lg hover:bg-[#f8c68c] transition">Regenerate</button>`;
+                showModal(`${student.name} - Song Recommendations`, tableHTML, actionsHTML);
+            } else {
+                window.generateAndShowRecommendations(student.id, false);
+            }
+        }
+
+        window.generateAndShowRecommendations = async function(studentId, isRegenerating = false) {
+            const student = globalStudentsCache[studentId];
+            if (!student) return showAlert("Student data not found.");
+
+            const loadingHTML = '<div class="flex justify-center items-center h-32"><div class="loading-ring"></div><p class="ml-4 text-[#103a52]">Searching for recommendations...</p></div>';
+            showModal('Generating...', loadingHTML, '');
+            
+            try {
+                const response = await fetch(`/api/students/${studentId}/recommendations`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                if (!response.ok) throw new Error('Failed to generate recommendations');
+                
+                const result = await response.json();
+                const tableHTML = formatRecommendationsToHTML(result.recommendations);
+                const actionsHTML = `<button onclick="window.generateAndShowRecommendations('${student.id}', true)" class="p-2 bg-[#fad9b0] text-[#103a52] font-bold rounded-lg hover:bg-[#f8c68c] transition">Regenerate</button>`;
+                showModal(`${student.name} - Song Recommendations`, tableHTML, actionsHTML);
+                loadStudents();
+            } catch (error) {
+                console.error('Error generating recommendations:', error);
+                closeModal();
+                showAlert(`Failed to generate recommendations: ${error.message}`);
+            }
+        }
+
+        function formatRecommendationsToHTML(recommendations) {
+            let html = `
+                <p class="mb-4 text-gray-600">The following pieces were generated based on the student's instrument, skill level, and goals.</p>
+                <table class="min-w-full divide-y divide-gray-200 shadow-lg rounded-lg overflow-hidden">
+                    <thead style="background-color: #fad9b0;">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-bold text-[#103a52] uppercase tracking-wider font-heading">Piece</th>
+                            <th class="px-4 py-3 text-left text-xs font-bold text-[#103a52] uppercase tracking-wider font-heading">Composer</th>
+                            <th class="px-4 py-3 text-left text-xs font-bold text-[#103a52] uppercase tracking-wider font-heading">Technical Focus</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-100">
+            `;
+
+            recommendations.forEach(rec => {
+                html += `
+                    <tr>
+                        <td class="px-4 py-3 whitespace-normal text-sm font-medium text-[#103a52]">${rec.title}</td>
+                        <td class="px-4 py-3 whitespace-normal text-sm text-gray-700">${rec.composer}</td>
+                        <td class="px-4 py-3 whitespace-normal text-sm text-gray-700">${rec.focus}</td>
+                    </tr>
+                `;
+            });
+
+            html += `</tbody></table>`;
+            return html;
+        }
+
+        // --- LESSON PLAN ---
+        window.handlePlanClick = function(studentId) {
+            const student = globalStudentsCache[studentId];
+            if (!student) return showAlert("Student data not found.");
+            
+            if (student.lessonPlan) {
+                const planHTML = convertMarkdownToHTML(student.lessonPlan);
+                const actionsHTML = `<button onclick="window.generateAndShowLessonPlan('${student.id}', true)" class="p-2 bg-[#fc4a4b] text-white font-bold rounded-lg hover:bg-[#e03a3b] transition">Regenerate</button>`;
+                showModal(`${student.name} - 8-Week Lesson Plan`, planHTML, actionsHTML);
+            } else {
+                window.generateAndShowLessonPlan(student.id, false);
+            }
+        }
+
+        window.generateAndShowLessonPlan = async function(studentId, isRegenerating = false) {
+            const student = globalStudentsCache[studentId];
+            if (!student) return showAlert("Student data not found.");
+
+            const loadingHTML = `<div class="flex justify-center items-center h-32"><div class="loading-ring"></div><p class="ml-4 text-[#103a52]">Creating 8-week lesson plan...</p></div>`;
+            showModal('Generating...', loadingHTML, '');
+
+            try {
+                const response = await fetch(`/api/students/${studentId}/lesson-plan`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                if (!response.ok) throw new Error('Failed to generate lesson plan');
+                
+                const result = await response.json();
+                const planHTML = convertMarkdownToHTML(result.lessonPlan);
+                const actionsHTML = `<button onclick="window.generateAndShowLessonPlan('${student.id}', true)" class="p-2 bg-[#fc4a4b] text-white font-bold rounded-lg hover:bg-[#e03a3b] transition">Regenerate</button>`;
+                showModal(`${student.name} - 8-Week Lesson Plan`, planHTML, actionsHTML);
+                loadStudents();
+            } catch (error) {
+                console.error('Error generating lesson plan:', error);
+                closeModal();
+                showAlert(`Failed to generate lesson plan: ${error.message}`);
+            }
+        }
+
+        // --- JOURNEY REPORT ---
+        window.generateAndShowJourneyReport = async function(studentId) {
+            const student = globalStudentsCache[studentId];
+            if (!student) return showAlert("Student data not found.");
+            
+            showModal('Generating...', '<div class="flex justify-center items-center h-32"><div class="loading-ring"></div><p class="ml-4 text-[#103a52]">Drafting Musician\'s Journey Report...</p></div>', '');
+
+            try {
+                const response = await fetch(`/api/students/${studentId}/journey-report`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                if (!response.ok) throw new Error('Failed to generate journey report');
+                
+                const result = await response.json();
+                const noteHTML = convertMarkdownToHTML(result.journeyReport);
+                showModal(`${student.name} - Journey Report`, noteHTML, '');
+            } catch (error) {
+                console.error('Error generating journey report:', error);
+                closeModal();
+                showAlert(`Failed to generate journey report: ${error.message}`);
+            }
+        }
+
+        // --- MARKDOWN CONVERTER ---
+        function convertMarkdownToHTML(md) {
+            let html = md;
+
+            html = html.replace(/^### (.*$)/gim, '<h3 class="font-bold text-lg mb-2 mt-4">$1</h3>');
+            html = html.replace(/^## (.*$)/gim, '<h2 class="font-bold text-xl mb-2 mt-5">$1</h2>');
+            html = html.replace(/^# (.*$)/gim, '<h1 class="font-bold text-2xl mb-2 mt-6">$1</h1>');
+
+            html = html.replace(/\*\*(.*?)\*\*/gim, '<strong>$1</strong>');
+            html = html.replace(/__(.*?)__/gim, '<strong>$1</strong>');
+
+            html = html.replace(/\*(.*?)\*/gim, '<em>$1</em>');
+            html = html.replace(/_(.*?)_/gim, '<em>$1</em>');
+
+            html = html.replace(/^[ \t]*[\*\-] (.*$)/gim, '<li>$1</li>');
+            html = html.replace(/<\/li>\n<li>/gim, '</li><li>');
+            html = html.replace(/(<li>.*<\/li>)/gim, '<ul>$1</ul>');
+            
+            html = html.replace(/<\/ul>\n<ul>/gim, '');
+
+            html = html.split('\n')
+                .map(line => line.trim())
+                .filter(line => line.length > 0)
+                .map(line => {
+                    if (line.startsWith('<h') || line.startsWith('<ul') || line.startsWith('<li>') || line.endsWith('</ul>')) {
+                        return line;
+                    }
+                    return `<p>${line}</p>`;
+                })
+                .join('');
+            
+            html = html.replace(/<p><\/p>/gim, '');
+            html = html.replace(/<p><li>/gim, '<li>');
+            html = html.replace(/<\/li><\/p>/gim, '</li>');
+
+            return html;
+        }
+
+        // Load students on page load
+        loadStudents();
+    </script>
+</body>
+</html>
+

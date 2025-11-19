@@ -1,0 +1,330 @@
+from flask import Flask, render_template, request, jsonify
+import json
+import os
+from datetime import datetime
+import google.generativeai as genai
+from pathlib import Path
+
+app = Flask(__name__)
+
+# Configuration
+DATA_DIR = Path(__file__).parent / 'data'
+STUDENTS_FILE = DATA_DIR / 'students.json'
+API_KEY = os.getenv('GEMINI_API_KEY', '')
+
+# Initialize Generative AI
+if API_KEY:
+    genai.configure(api_key=API_KEY)
+
+# Ensure data directory exists
+DATA_DIR.mkdir(exist_ok=True)
+
+def load_students():
+    """Load students from JSON file."""
+    if STUDENTS_FILE.exists():
+        with open(STUDENTS_FILE, 'r') as f:
+            return json.load(f)
+    return {}
+
+def save_students(students):
+    """Save students to JSON file."""
+    with open(STUDENTS_FILE, 'w') as f:
+        json.dump(students, f, indent=2)
+
+def generate_id():
+    """Generate a simple ID based on timestamp."""
+    return str(int(datetime.now().timestamp() * 1000))
+
+@app.route('/')
+def index():
+    """Serve the main page."""
+    return render_template('index.html')
+
+@app.route('/api/students', methods=['GET'])
+def get_students():
+    """Get all students."""
+    try:
+        students_dict = load_students()
+        students = list(students_dict.values())
+        # Sort by timestamp descending
+        students.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+        return jsonify(students), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/students', methods=['POST'])
+def add_student():
+    """Add a new student."""
+    try:
+        data = request.json
+        
+        # Validate required fields
+        if not data.get('name') or not data.get('instrument') or not data.get('skillLevel') or not data.get('currentAssignments'):
+            return jsonify({'error': 'Missing required fields'}), 400
+        
+        student_id = generate_id()
+        students_dict = load_students()
+        
+        students_dict[student_id] = {
+            'id': student_id,
+            'name': data.get('name'),
+            'age': data.get('age') or None,
+            'instrument': data.get('instrument'),
+            'skillLevel': data.get('skillLevel'),
+            'currentAssignments': data.get('currentAssignments'),
+            'currentGoals': data.get('currentGoals', ''),
+            'lessonNoteHistory': '',
+            'recommendations': json.dumps([]),
+            'lessonPlan': '',
+            'timestamp': datetime.now().isoformat(),
+            'ownerId': 'local-user'
+        }
+        
+        save_students(students_dict)
+        return jsonify(students_dict[student_id]), 201
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/students/<student_id>', methods=['PUT'])
+def update_student(student_id):
+    """Update a student."""
+    try:
+        data = request.json
+        students_dict = load_students()
+        
+        if student_id not in students_dict:
+            return jsonify({'error': 'Student not found'}), 404
+        
+        # Update fields
+        student = students_dict[student_id]
+        student['name'] = data.get('name', student['name'])
+        student['age'] = data.get('age') or None
+        student['instrument'] = data.get('instrument', student['instrument'])
+        student['skillLevel'] = data.get('skillLevel', student['skillLevel'])
+        student['currentAssignments'] = data.get('currentAssignments', student['currentAssignments'])
+        student['currentGoals'] = data.get('currentGoals', student['currentGoals'])
+        student['lessonNoteHistory'] = data.get('lessonNoteHistory', student['lessonNoteHistory'])
+        
+        save_students(students_dict)
+        return jsonify(student), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/students/<student_id>/recommendations', methods=['POST'])
+def generate_recommendations(student_id):
+    """Generate song recommendations for a student."""
+    try:
+        if not API_KEY:
+            return jsonify({'error': 'Gemini API key not configured'}), 500
+        
+        students_dict = load_students()
+        if student_id not in students_dict:
+            return jsonify({'error': 'Student not found'}), 404
+        
+        student = students_dict[student_id]
+        
+        # Create the prompt
+        system_prompt = """You are a music teacher assistant. Generate a list of 5 pieces appropriate for the specified instrument, skill level, and student goals.
+
+Your entire response MUST be a single, valid JSON array string (e.g., [ { "title": "...", ... } ]).
+Do not include any text, markdown, or apologies before or after the JSON array.
+
+Each object in the array must have these keys: "title", "composer", "focus"."""
+        
+        user_query = f"""Generate song recommendations for a {student['instrument']} student at the {student['skillLevel']} level.
+Student Goals: {student.get('currentGoals') or 'Not specified'}
+Student Lesson History: {student.get('lessonNoteHistory') or 'Not specified'}"""
+        
+        # Call Gemini API
+        model = genai.GenerativeModel('gemini-2.0-flash')
+        response = model.generate_content(
+            user_query,
+            system_instruction=system_prompt
+        )
+        
+        # Parse the response
+        response_text = response.text.strip()
+        recommendations = json.loads(response_text)
+        
+        # Save to student record
+        student['recommendations'] = json.dumps(recommendations)
+        save_students(students_dict)
+        
+        return jsonify({'recommendations': recommendations}), 200
+    except json.JSONDecodeError:
+        return jsonify({'error': 'Failed to parse AI response as JSON'}), 500
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/students/<student_id>/lesson-plan', methods=['POST'])
+def generate_lesson_plan(student_id):
+    """Generate an 8-week lesson plan for a student."""
+    try:
+        if not API_KEY:
+            return jsonify({'error': 'Gemini API key not configured'}), 500
+        
+        students_dict = load_students()
+        if student_id not in students_dict:
+            return jsonify({'error': 'Student not found'}), 404
+        
+        student = students_dict[student_id]
+        
+        # Create the prompt
+        system_prompt = """You are an expert music educator. Create a structured 8-week lesson plan tailored to the student's instrument, materials, goals, and history. The plan should balance technical exercises, sight-reading, and repertoire.
+Format the response in clean Markdown. Use headings (e.g., '### Week 1-2: Focus on Technique') and bullet points for clarity. 
+Ensure new information starts on a new line. Do not use horizontal rules (---) or asterisks for bullets; use dashes (-) instead."""
+        
+        user_query = f"""Create an 8-week plan for this {student['instrument']} student.
+Current Materials: {student['currentAssignments']}
+Student Goals: {student.get('currentGoals') or 'Not specified'}
+Lesson Note History: {student.get('lessonNoteHistory') or 'Not specified'}"""
+        
+        # Call Gemini API
+        model = genai.GenerativeModel('gemini-2.0-flash')
+        response = model.generate_content(
+            user_query,
+            system_instruction=system_prompt
+        )
+        
+        plan_text = response.text
+        
+        # Save to student record
+        student['lessonPlan'] = plan_text
+        save_students(students_dict)
+        
+        return jsonify({'lessonPlan': plan_text}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/students/<student_id>/journey-report', methods=['POST'])
+def generate_journey_report(student_id):
+    """Generate a musician's journey report for a student."""
+    try:
+        if not API_KEY:
+            return jsonify({'error': 'Gemini API key not configured'}), 500
+        
+        students_dict = load_students()
+        if student_id not in students_dict:
+            return jsonify({'error': 'Student not found'}), 404
+        
+        student = students_dict[student_id]
+        
+        # Determine if adult
+        try:
+            age = int(student.get('age') or 0)
+            is_adult = age > 18
+        except:
+            is_adult = False
+        
+        # Create appropriate prompt
+        if is_adult:
+            system_prompt = """You are an expert music educator drafting an encouraging "Musician's Journey Report" for an adult student.
+The tone should be positive, professional, and collaborative.
+The report must cover:
+1.  **Student's Progress:** Summarize their progress based on lesson history.
+2.  **Achievements:** Highlight key pieces mastered or skills developed.
+3.  **Goal Achievement:** How they have successfully (or are in the process of) achieving their stated goals.
+4.  **Looking Forward:** A brief look at what skills and concepts you plan to cover next.
+Format this as a clean document. Use headings (###) and bullet points (-) for clarity."""
+        else:
+            system_prompt = """You are an expert music educator drafting an encouraging "Musician's Journey Report" for the parent of a student.
+**CRITICAL: Assume the parent has ZERO musical knowledge.**
+The tone must be positive, professional, and simple.
+The report must cover:
+1.  **Student's Progress:** Summarize their progress. (e.g., "improved rhythm" becomes "got much better at playing steady beats").
+2.  **Achievements:** Highlight key pieces mastered.
+3.  **Goal Achievement:** How they are achieving their goals.
+4.  **Looking Forward:** A brief, simple look at what's next (e.g., "We'll start learning how to play with both hands together more often.").
+Format this as a clean document. Use headings (###) and bullet points (-) for clarity."""
+        
+        user_query = f"""Draft the Musician's Journey Report for {student['name']} ({student['instrument']}).
+Student's Age: {student.get('age') or 'Not specified'}
+Current Materials: {student['currentAssignments']}
+Stated Goals: {student.get('currentGoals') or 'Not specified'}
+Lesson Note History: {student.get('lessonNoteHistory') or 'Not specified'}"""
+        
+        # Call Gemini API
+        model = genai.GenerativeModel('gemini-2.0-flash')
+        response = model.generate_content(
+            user_query,
+            system_instruction=system_prompt
+        )
+        
+        report_text = response.text
+        
+        return jsonify({'journeyReport': report_text}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/import-xlsx', methods=['POST'])
+def import_xlsx():
+    """Import students from XLSX file."""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file provided'}), 400
+        
+        file = request.files['file']
+        
+        # Import openpyxl here to avoid hard dependency if not using this feature
+        import openpyxl
+        
+        workbook = openpyxl.load_workbook(file.stream)
+        worksheet = workbook.active
+        
+        students_dict = load_students()
+        imported_count = 0
+        
+        # Get headers from first row
+        headers = []
+        for cell in worksheet[1]:
+            headers.append(cell.value)
+        
+        # Process data rows
+        for row_idx, row in enumerate(worksheet.iter_rows(min_row=2, values_only=True), start=2):
+            if not any(row):  # Skip empty rows
+                continue
+            
+            row_dict = dict(zip(headers, row))
+            
+            # Map fields
+            first_name = row_dict.get('First Name', '')
+            last_name = row_dict.get('Last Name', '')
+            name = f"{first_name} {last_name}".strip() or "Unnamed Student"
+            
+            assignments = f"{row_dict.get('Book') or 'N/A'} (p. {row_dict.get('Current book page') or 'N/A'})\nPieces: {row_dict.get('Current Pieces') or 'N/A'}".strip()
+            
+            # Map skill level
+            skill_level_input = row_dict.get('Skill Level')
+            skill_level_map = {
+                '1': 'Beginner',
+                '2': 'Early Intermediate',
+                '3': 'Intermediate',
+                '4': 'Advanced'
+            }
+            skill_level = skill_level_map.get(str(skill_level_input).lower()[:1], 'Intermediate')
+            
+            student_id = generate_id()
+            students_dict[student_id] = {
+                'id': student_id,
+                'name': name,
+                'age': row_dict.get('Age'),
+                'instrument': row_dict.get('Instrument', 'Unknown'),
+                'skillLevel': skill_level,
+                'currentAssignments': assignments,
+                'currentGoals': row_dict.get('Goals', ''),
+                'lessonNoteHistory': '',
+                'recommendations': json.dumps([]),
+                'lessonPlan': '',
+                'timestamp': datetime.now().isoformat(),
+                'ownerId': 'local-user'
+            }
+            imported_count += 1
+        
+        save_students(students_dict)
+        return jsonify({'success': True, 'count': imported_count}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+if __name__ == '__main__':
+    app.run(debug=True, host='127.0.0.1', port=5000)
+
