@@ -204,11 +204,11 @@ Student Lesson History: {student.get('lessonNoteHistory') or 'Not specified'}"""
         
         logger.info("Calling Gemini API...")
         # Call Gemini API
-        model = genai.GenerativeModel('gemini-2.0-flash')
-        response = model.generate_content(
-            user_query,
+        model = genai.GenerativeModel(
+            'gemini-2.0-flash',
             system_instruction=system_prompt
         )
+        response = model.generate_content(user_query)
         
         logger.info("Gemini API response received")
         
@@ -258,11 +258,11 @@ Lesson Note History: {student.get('lessonNoteHistory') or 'Not specified'}"""
         
         logger.info("Calling Gemini API for lesson plan...")
         # Call Gemini API
-        model = genai.GenerativeModel('gemini-2.0-flash')
-        response = model.generate_content(
-            user_query,
+        model = genai.GenerativeModel(
+            'gemini-2.0-flash',
             system_instruction=system_prompt
         )
+        response = model.generate_content(user_query)
         
         plan_text = response.text
         
@@ -331,11 +331,11 @@ Lesson Note History: {student.get('lessonNoteHistory') or 'Not specified'}"""
         
         logger.info("Calling Gemini API for journey report...")
         # Call Gemini API
-        model = genai.GenerativeModel('gemini-2.0-flash')
-        response = model.generate_content(
-            user_query,
+        model = genai.GenerativeModel(
+            'gemini-2.0-flash',
             system_instruction=system_prompt
         )
+        response = model.generate_content(user_query)
         
         report_text = response.text
         
