@@ -87,7 +87,7 @@ def is_logged_in():
     return 'user_id' in session
 
 def init_default_admin():
-    """Create default admin user if users database is empty."""
+    """Create default admin user if users database is empty. Ensure first teacher is Teacher Manager."""
     users = load_users()
     if not users:
         users['admin'] = {
@@ -99,10 +99,22 @@ def init_default_admin():
         save_users(users)
         logger.info("✓ Default admin user created (username: admin, password: admin)")
     else:
-        # Migrate old role names to new format
+        # Migrate old role names and ensure proper role assignment
         changed = False
+        
+        # Count non-admin users
+        non_admin_users = [u for u in users.values() if u.get('role') != 'admin']
+        
+        logger.info(f"Found {len(non_admin_users)} non-admin users")
+        
         for username, user in users.items():
+            if username == 'admin':
+                continue
+            
             old_role = user.get('role')
+            logger.info(f"User {username} has role: {old_role}")
+            
+            # Convert old role names
             if old_role == 'teacher_manager':
                 user['role'] = 'Teacher Manager'
                 changed = True
@@ -111,10 +123,26 @@ def init_default_admin():
                 user['role'] = 'Teacher'
                 changed = True
                 logger.info(f"Migrated {username} from 'teacher' to 'Teacher'")
+            elif old_role is None:
+                # Missing role - assign based on order
+                user['role'] = 'Teacher'
+                changed = True
+                logger.info(f"Assigned default role 'Teacher' to {username}")
+        
+        # Make sure the oldest non-admin user is Teacher Manager
+        if len(non_admin_users) > 0:
+            # Find oldest user
+            oldest_user = min(non_admin_users, key=lambda u: u.get('created_at', ''))
+            oldest_username = oldest_user.get('username')
+            
+            if oldest_user.get('role') != 'Teacher Manager':
+                logger.info(f"Making {oldest_username} a Teacher Manager (oldest user)")
+                users[oldest_username]['role'] = 'Teacher Manager'
+                changed = True
         
         if changed:
             save_users(users)
-            logger.info("✓ User roles migrated to new format")
+            logger.info("✓ User roles updated/migrated to new format")
     
     return users
 
