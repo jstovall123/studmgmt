@@ -823,8 +823,13 @@
                     document.getElementById('app-container').classList.remove('hidden');
                     document.getElementById('current-user').textContent = data.username;
                     
-                    // Store user role (check if admin for showing manage users button)
-                    checkIfAdmin(data.user_id);
+                    // Show admin button only if user is Teacher Manager
+                    if (data.role === 'Teacher Manager') {
+                        document.getElementById('admin-panel-btn').classList.remove('hidden');
+                    } else {
+                        document.getElementById('admin-panel-btn').classList.add('hidden');
+                    }
+                    
                     loadStudents();
                 } else {
                     // Not logged in - check if setup needed
@@ -851,14 +856,6 @@
             }
         }
 
-        async function checkIfAdmin(userId) {
-            // Simple check - if user is admin, show admin panel button
-            // We can tell by trying the create user endpoint, but for now we'll assume
-            // the user will be admin if they logged in first
-            // TODO: Add role info to current-user endpoint
-            document.getElementById('admin-panel-btn').classList.remove('hidden');
-        }
-
         window.toggleAdminPanel = function() {
             const modal = document.getElementById('admin-modal');
             if (modal.classList.contains('hidden')) {
@@ -874,7 +871,10 @@
         async function loadTeachersList() {
             try {
                 const response = await fetch('/api/teachers');
-                if (!response.ok) throw new Error('Failed to load teachers');
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || `HTTP ${response.status}`);
+                }
                 
                 const teachers = await response.json();
                 const listEl = document.getElementById('teachers-list');
@@ -888,14 +888,14 @@
                     <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg border border-gray-200">
                         <div>
                             <p class="font-semibold text-[#103a52]">${teacher.username}</p>
-                            <p class="text-xs text-gray-500">Created: ${new Date(teacher.created_at).toLocaleDateString()}</p>
+                            <p class="text-xs text-gray-500">Role: ${teacher.role} • Created: ${new Date(teacher.created_at).toLocaleDateString()}</p>
                         </div>
                         <button onclick="deleteTeacherConfirm('${teacher.username}')" class="p-2 bg-red-600 text-white text-xs font-bold rounded hover:bg-red-700 transition">Delete</button>
                     </div>
                 `).join('');
             } catch (error) {
                 console.error('Error loading teachers:', error);
-                document.getElementById('teachers-list').innerHTML = '<p class="text-red-600 text-sm">Error loading teachers</p>';
+                document.getElementById('teachers-list').innerHTML = `<p class="text-red-600 text-sm">Error: ${error.message}</p>`;
             }
         }
 

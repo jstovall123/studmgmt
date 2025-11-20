@@ -287,10 +287,22 @@ def logout():
 def current_user():
     """Get current logged-in user."""
     if 'user_id' in session:
-        return jsonify({
-            'user_id': session['user_id'],
-            'username': session['username']
-        }), 200
+        try:
+            users = load_users()
+            user_id = session['user_id']
+            user_data = users.get(user_id, {})
+            return jsonify({
+                'user_id': user_id,
+                'username': session['username'],
+                'role': user_data.get('role', 'Teacher')
+            }), 200
+        except Exception as e:
+            logger.error(f"Error getting user info: {e}")
+            return jsonify({
+                'user_id': session['user_id'],
+                'username': session['username'],
+                'role': 'Teacher'
+            }), 200
     return jsonify({'user_id': None}), 200
 
 @app.route('/api/students', methods=['GET'])
