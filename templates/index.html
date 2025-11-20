@@ -160,6 +160,20 @@
         </div>
     </div>
 
+    <!-- Delete Confirmation Modal -->
+    <div id="delete-modal" class="fixed inset-0 bg-gray-600 bg-opacity-75 hidden items-center justify-center p-4 z-50">
+        <div class="container-card w-full max-w-sm p-6 text-center">
+            <h3 class="text-xl font-bold text-red-700 mb-4 font-heading">⚠️ Delete Student?</h3>
+            <p class="text-gray-600 mb-2">Are you sure you want to delete:</p>
+            <p id="delete-student-name" class="text-gray-800 font-bold mb-6 text-lg"></p>
+            <p class="text-gray-600 mb-6 text-sm">This action cannot be undone. All student data will be permanently deleted.</p>
+            <div class="flex gap-3">
+                <button onclick="confirmDelete()" class="flex-1 p-3 bg-red-600 text-white font-bold rounded-lg hover:bg-red-700 transition duration-150">Delete Anyway</button>
+                <button onclick="cancelDelete()" class="flex-1 p-3 bg-gray-400 text-white font-bold rounded-lg hover:bg-gray-500 transition duration-150">Cancel</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         // --- GLOBAL VARIABLES ---
         let globalStudentsCache = {};
@@ -305,6 +319,10 @@
                             <button onclick="window.generateAndShowJourneyReport('${student.id}')"
                                 class="w-full text-xs p-2 rounded-lg bg-[#103a52] text-white hover:bg-[#0a283f] transition">
                                 ✨ Journey Report
+                            </button>
+                            <button onclick="window.showDeleteConfirm('${student.id}', '${escapeQuotes(student.name)}')"
+                                class="w-full text-xs p-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition">
+                                🗑️ Delete
                             </button>
                         </div>
                     </td>
@@ -605,6 +623,45 @@
             html = html.replace(/<\/li><\/p>/gim, '</li>');
 
             return html;
+        }
+
+        // --- DELETE FUNCTIONS ---
+        
+        window.showDeleteConfirm = function(studentId, studentName) {
+            document.getElementById('delete-student-name').textContent = studentName;
+            document.getElementById('delete-modal').classList.remove('hidden');
+            document.getElementById('delete-modal').classList.add('flex');
+            // Store student ID in global for use in confirmDelete
+            window.deleteStudentId = studentId;
+        }
+
+        window.cancelDelete = function() {
+            document.getElementById('delete-modal').classList.add('hidden');
+            document.getElementById('delete-modal').classList.remove('flex');
+            window.deleteStudentId = null;
+        }
+
+        window.confirmDelete = async function() {
+            const studentId = window.deleteStudentId;
+            if (!studentId) return;
+
+            try {
+                const response = await fetch(`/api/students/${studentId}`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                if (!response.ok) throw new Error('Failed to delete student');
+                
+                // Close modal and reload
+                cancelDelete();
+                loadStudents();
+                showAlert('Student deleted successfully.');
+            } catch (error) {
+                console.error('Error deleting student:', error);
+                cancelDelete();
+                showAlert('Failed to delete student: ' + error.message);
+            }
         }
 
         // Load students on page load

@@ -110,6 +110,26 @@ def update_student(student_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/students/<student_id>', methods=['DELETE'])
+def delete_student(student_id):
+    """Delete a student."""
+    try:
+        students_dict = load_students()
+        
+        if student_id not in students_dict:
+            return jsonify({'error': 'Student not found'}), 404
+        
+        # Get student name before deletion (for response)
+        student_name = students_dict[student_id]['name']
+        
+        # Delete the student
+        del students_dict[student_id]
+        save_students(students_dict)
+        
+        return jsonify({'success': True, 'message': f'Student {student_name} deleted successfully'}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/students/<student_id>/recommendations', methods=['POST'])
 def generate_recommendations(student_id):
     """Generate song recommendations for a student."""
