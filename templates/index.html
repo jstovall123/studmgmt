@@ -101,10 +101,11 @@
         <!-- XLSX Import Section -->
         <section class="container-card p-6 mb-8">
             <h2 class="text-2xl font-semibold mb-4 font-heading">Import from .XLSX File</h2>
-            <div class="flex flex-col sm:flex-row gap-4">
-                <input type="file" id="xlsx-file-input" accept=".xlsx" class="flex-grow p-3 border border-gray-300 rounded-lg file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-[#fff6eb] file:text-[#103a52] hover:file:bg-[#fad9b0]">
+            <div class="flex flex-col sm:flex-row gap-4 mb-4">
+                <input type="file" id="xlsx-file-input" accept=".xlsx,.csv" class="flex-grow p-3 border border-gray-300 rounded-lg file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-[#fff6eb] file:text-[#103a52] hover:file:bg-[#fad9b0]">
                 <button id="import-button" class="p-3 bg-[#103a52] text-white font-bold rounded-lg hover:bg-[#0a283f] transition duration-150 shadow-md">Import Students</button>
             </div>
+            <a href="/download-sample" download="sample_import.csv" class="inline-block text-sm text-[#103a52] hover:text-[#0a283f] underline">📥 Download Sample CSV Template</a>
             <p id="import-status" class="text-sm text-gray-600 mt-2"></p>
         </section>
 

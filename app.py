@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_file
 import json
 import os
 from datetime import datetime
@@ -342,6 +342,24 @@ def import_xlsx():
         
         save_students(students_dict)
         return jsonify({'success': True, 'count': imported_count}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/download-sample', methods=['GET'])
+def download_sample():
+    """Download sample import CSV file."""
+    try:
+        sample_file = Path(__file__).parent / 'samples' / 'sample_import.csv'
+        
+        if not sample_file.exists():
+            return jsonify({'error': 'Sample file not found'}), 404
+        
+        return send_file(
+            sample_file,
+            mimetype='text/csv',
+            as_attachment=True,
+            download_name='sample_import.csv'
+        )
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
