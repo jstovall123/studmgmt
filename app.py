@@ -198,16 +198,15 @@ Do not include any text, markdown, or apologies before or after the JSON array.
 
 Each object in the array must have these keys: "title", "composer", "focus"."""
         
-        user_query = f"""Generate song recommendations for a {student['instrument']} student at the {student['skillLevel']} level.
+        user_query = f"""{system_prompt}
+
+Generate song recommendations for a {student['instrument']} student at the {student['skillLevel']} level.
 Student Goals: {student.get('currentGoals') or 'Not specified'}
 Student Lesson History: {student.get('lessonNoteHistory') or 'Not specified'}"""
         
         logger.info("Calling Gemini API...")
         # Call Gemini API
-        model = genai.GenerativeModel(
-            'gemini-2.0-flash',
-            system_instruction=system_prompt
-        )
+        model = genai.GenerativeModel('gemini-2.0-flash')
         response = model.generate_content(user_query)
         
         logger.info("Gemini API response received")
@@ -251,17 +250,16 @@ def generate_lesson_plan(student_id):
 Format the response in clean Markdown. Use headings (e.g., '### Week 1-2: Focus on Technique') and bullet points for clarity. 
 Ensure new information starts on a new line. Do not use horizontal rules (---) or asterisks for bullets; use dashes (-) instead."""
         
-        user_query = f"""Create an 8-week plan for this {student['instrument']} student.
+        user_query = f"""{system_prompt}
+
+Create an 8-week plan for this {student['instrument']} student.
 Current Materials: {student['currentAssignments']}
 Student Goals: {student.get('currentGoals') or 'Not specified'}
 Lesson Note History: {student.get('lessonNoteHistory') or 'Not specified'}"""
         
         logger.info("Calling Gemini API for lesson plan...")
         # Call Gemini API
-        model = genai.GenerativeModel(
-            'gemini-2.0-flash',
-            system_instruction=system_prompt
-        )
+        model = genai.GenerativeModel('gemini-2.0-flash')
         response = model.generate_content(user_query)
         
         plan_text = response.text
@@ -323,7 +321,9 @@ The report must cover:
 4.  **Looking Forward:** A brief, simple look at what's next (e.g., "We'll start learning how to play with both hands together more often.").
 Format this as a clean document. Use headings (###) and bullet points (-) for clarity."""
         
-        user_query = f"""Draft the Musician's Journey Report for {student['name']} ({student['instrument']}).
+        user_query = f"""{system_prompt}
+
+Draft the Musician's Journey Report for {student['name']} ({student['instrument']}).
 Student's Age: {student.get('age') or 'Not specified'}
 Current Materials: {student['currentAssignments']}
 Stated Goals: {student.get('currentGoals') or 'Not specified'}
@@ -331,10 +331,7 @@ Lesson Note History: {student.get('lessonNoteHistory') or 'Not specified'}"""
         
         logger.info("Calling Gemini API for journey report...")
         # Call Gemini API
-        model = genai.GenerativeModel(
-            'gemini-2.0-flash',
-            system_instruction=system_prompt
-        )
+        model = genai.GenerativeModel('gemini-2.0-flash')
         response = model.generate_content(user_query)
         
         report_text = response.text
