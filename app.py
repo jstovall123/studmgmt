@@ -57,23 +57,7 @@ else:
 DATA_DIR.mkdir(exist_ok=True)
 logger.info(f"Data directory ready: {DATA_DIR}")
 
-# Initialize default admin user if no users exist
-def init_default_admin():
-    """Create default admin user if users database is empty."""
-    users = load_users()
-    if not users:
-        users['admin'] = {
-            'username': 'admin',
-            'password': generate_password_hash('admin'),
-            'role': 'admin',
-            'created_at': datetime.now().isoformat()
-        }
-        save_users(users)
-        logger.info("✓ Default admin user created (username: admin, password: admin)")
-    return users
-
-init_default_admin()
-
+# --- UTILITY FUNCTIONS ---
 def load_students():
     """Load students from JSON file."""
     if STUDENTS_FILE.exists():
@@ -101,6 +85,22 @@ def save_users(users):
 def is_logged_in():
     """Check if user is logged in."""
     return 'user_id' in session
+
+def init_default_admin():
+    """Create default admin user if users database is empty."""
+    users = load_users()
+    if not users:
+        users['admin'] = {
+            'username': 'admin',
+            'password': generate_password_hash('admin'),
+            'role': 'admin',
+            'created_at': datetime.now().isoformat()
+        }
+        save_users(users)
+        logger.info("✓ Default admin user created (username: admin, password: admin)")
+    return users
+
+init_default_admin()
 
 def generate_id():
     """Generate a simple ID based on timestamp."""
