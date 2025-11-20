@@ -1,6 +1,8 @@
 from flask import Flask, render_template, request, jsonify, send_file
 import json
 import os
+import sys
+import logging
 from datetime import datetime
 import google.generativeai as genai
 from pathlib import Path
@@ -8,21 +10,49 @@ from dotenv import load_dotenv
 
 app = Flask(__name__)
 
-# Load environment variables from .env file (explicitly specify the path)
+# Set up logging to see all output in systemd journal
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    stream=sys.stdout
+)
+logger = logging.getLogger(__name__)
+
+# Load environment variables from .env file
 env_path = Path(__file__).parent / '.env'
-load_dotenv(env_path)
+logger.info(f"Looking for .env file at: {env_path}")
+logger.info(f".env file exists: {env_path.exists()}")
+
+if env_path.exists():
+    load_dotenv(env_path)
+    logger.info("✓ .env file loaded successfully")
+else:
+    logger.warning("⚠ .env file not found!")
 
 # Configuration
 DATA_DIR = Path(__file__).parent / 'data'
 STUDENTS_FILE = DATA_DIR / 'students.json'
 API_KEY = os.getenv('GEMINI_API_KEY', '')
 
+logger.info(f"API_KEY loaded: {bool(API_KEY)}")
+if API_KEY:
+    logger.info(f"API_KEY preview: {API_KEY[:15]}...")
+else:
+    logger.error("❌ API_KEY is empty - AI features will not work!")
+
 # Initialize Generative AI
 if API_KEY:
-    genai.configure(api_key=API_KEY)
+    try:
+        genai.configure(api_key=API_KEY)
+        logger.info("✓ Generative AI configured successfully")
+    except Exception as e:
+        logger.error(f"❌ Failed to configure Generative AI: {e}")
+else:
+    logger.warning("⚠ Generative AI not configured - no API key")
 
 # Ensure data directory exists
 DATA_DIR.mkdir(exist_ok=True)
+logger.info(f"Data directory ready: {DATA_DIR}")
 
 def load_students():
     """Load students from JSON file."""
@@ -55,6 +85,7 @@ def get_students():
         students.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
         return jsonify(students), 200
     except Exception as e:
+        logger.error(f"Error getting students: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/students', methods=['POST'])
@@ -86,8 +117,10 @@ def add_student():
         }
         
         save_students(students_dict)
+        logger.info(f"Added student: {data.get('name')}")
         return jsonify(students_dict[student_id]), 201
     except Exception as e:
+        logger.error(f"Error adding student: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/students/<student_id>', methods=['PUT'])
@@ -111,8 +144,10 @@ def update_student(student_id):
         student['lessonNoteHistory'] = data.get('lessonNoteHistory', student['lessonNoteHistory'])
         
         save_students(students_dict)
+        logger.info(f"Updated student: {student['name']}")
         return jsonify(student), 200
     except Exception as e:
+        logger.error(f"Error updating student: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/students/<student_id>', methods=['DELETE'])
@@ -131,19 +166,21 @@ def delete_student(student_id):
         del students_dict[student_id]
         save_students(students_dict)
         
+        logger.info(f"Deleted student: {student_name}")
         return jsonify({'success': True, 'message': f'Student {student_name} deleted successfully'}), 200
     except Exception as e:
+        logger.error(f"Error deleting student: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/students/<student_id>/recommendations', methods=['POST'])
 def generate_recommendations(student_id):
     """Generate song recommendations for a student."""
+    logger.info(f"Generating recommendations for student: {student_id}")
+    logger.info(f"API_KEY present: {bool(API_KEY)}")
+    
     try:
-        print(f"DEBUG: API_KEY exists: {bool(API_KEY)}", flush=True)
-        print(f"DEBUG: API_KEY value: {API_KEY[:20] if API_KEY else 'NONE'}", flush=True)
-        
         if not API_KEY:
-            print("ERROR: API_KEY not configured", flush=True)
+            logger.error("❌ API_KEY is not configured")
             return jsonify({'error': 'Gemini API key not configured'}), 500
         
         students_dict = load_students()
@@ -151,6 +188,7 @@ def generate_recommendations(student_id):
             return jsonify({'error': 'Student not found'}), 404
         
         student = students_dict[student_id]
+        logger.info(f"Found student: {student['name']}")
         
         # Create the prompt
         system_prompt = """You are a music teacher assistant. Generate a list of 5 pieces appropriate for the specified instrument, skill level, and student goals.
@@ -164,12 +202,15 @@ Each object in the array must have these keys: "title", "composer", "focus"."""
 Student Goals: {student.get('currentGoals') or 'Not specified'}
 Student Lesson History: {student.get('lessonNoteHistory') or 'Not specified'}"""
         
+        logger.info("Calling Gemini API...")
         # Call Gemini API
         model = genai.GenerativeModel('gemini-2.0-flash')
         response = model.generate_content(
             user_query,
             system_instruction=system_prompt
         )
+        
+        logger.info("Gemini API response received")
         
         # Parse the response
         response_text = response.text.strip()
@@ -179,17 +220,23 @@ Student Lesson History: {student.get('lessonNoteHistory') or 'Not specified'}"""
         student['recommendations'] = json.dumps(recommendations)
         save_students(students_dict)
         
+        logger.info(f"✓ Generated {len(recommendations)} recommendations")
         return jsonify({'recommendations': recommendations}), 200
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON parsing error: {e}")
         return jsonify({'error': 'Failed to parse AI response as JSON'}), 500
     except Exception as e:
+        logger.error(f"❌ Error generating recommendations: {e}", exc_info=True)
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/students/<student_id>/lesson-plan', methods=['POST'])
 def generate_lesson_plan(student_id):
     """Generate an 8-week lesson plan for a student."""
+    logger.info(f"Generating lesson plan for student: {student_id}")
+    
     try:
         if not API_KEY:
+            logger.error("❌ API_KEY is not configured")
             return jsonify({'error': 'Gemini API key not configured'}), 500
         
         students_dict = load_students()
@@ -197,6 +244,7 @@ def generate_lesson_plan(student_id):
             return jsonify({'error': 'Student not found'}), 404
         
         student = students_dict[student_id]
+        logger.info(f"Found student: {student['name']}")
         
         # Create the prompt
         system_prompt = """You are an expert music educator. Create a structured 8-week lesson plan tailored to the student's instrument, materials, goals, and history. The plan should balance technical exercises, sight-reading, and repertoire.
@@ -208,6 +256,7 @@ Current Materials: {student['currentAssignments']}
 Student Goals: {student.get('currentGoals') or 'Not specified'}
 Lesson Note History: {student.get('lessonNoteHistory') or 'Not specified'}"""
         
+        logger.info("Calling Gemini API for lesson plan...")
         # Call Gemini API
         model = genai.GenerativeModel('gemini-2.0-flash')
         response = model.generate_content(
@@ -221,15 +270,20 @@ Lesson Note History: {student.get('lessonNoteHistory') or 'Not specified'}"""
         student['lessonPlan'] = plan_text
         save_students(students_dict)
         
+        logger.info("✓ Lesson plan generated successfully")
         return jsonify({'lessonPlan': plan_text}), 200
     except Exception as e:
+        logger.error(f"❌ Error generating lesson plan: {e}", exc_info=True)
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/students/<student_id>/journey-report', methods=['POST'])
 def generate_journey_report(student_id):
     """Generate a musician's journey report for a student."""
+    logger.info(f"Generating journey report for student: {student_id}")
+    
     try:
         if not API_KEY:
+            logger.error("❌ API_KEY is not configured")
             return jsonify({'error': 'Gemini API key not configured'}), 500
         
         students_dict = load_students()
@@ -237,6 +291,7 @@ def generate_journey_report(student_id):
             return jsonify({'error': 'Student not found'}), 404
         
         student = students_dict[student_id]
+        logger.info(f"Found student: {student['name']}")
         
         # Determine if adult
         try:
@@ -244,6 +299,8 @@ def generate_journey_report(student_id):
             is_adult = age > 18
         except:
             is_adult = False
+        
+        logger.info(f"Student age check: is_adult={is_adult}")
         
         # Create appropriate prompt
         if is_adult:
@@ -272,6 +329,7 @@ Current Materials: {student['currentAssignments']}
 Stated Goals: {student.get('currentGoals') or 'Not specified'}
 Lesson Note History: {student.get('lessonNoteHistory') or 'Not specified'}"""
         
+        logger.info("Calling Gemini API for journey report...")
         # Call Gemini API
         model = genai.GenerativeModel('gemini-2.0-flash')
         response = model.generate_content(
@@ -281,8 +339,10 @@ Lesson Note History: {student.get('lessonNoteHistory') or 'Not specified'}"""
         
         report_text = response.text
         
+        logger.info("✓ Journey report generated successfully")
         return jsonify({'journeyReport': report_text}), 200
     except Exception as e:
+        logger.error(f"❌ Error generating journey report: {e}", exc_info=True)
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/import-xlsx', methods=['POST'])
@@ -293,6 +353,7 @@ def import_xlsx():
             return jsonify({'error': 'No file provided'}), 400
         
         file = request.files['file']
+        logger.info(f"Importing file: {file.filename}")
         
         # Import openpyxl here to avoid hard dependency if not using this feature
         import openpyxl
@@ -307,6 +368,8 @@ def import_xlsx():
         headers = []
         for cell in worksheet[1]:
             headers.append(cell.value)
+        
+        logger.info(f"Headers found: {headers}")
         
         # Process data rows
         for row_idx, row in enumerate(worksheet.iter_rows(min_row=2, values_only=True), start=2):
@@ -350,8 +413,10 @@ def import_xlsx():
             imported_count += 1
         
         save_students(students_dict)
+        logger.info(f"✓ Imported {imported_count} students")
         return jsonify({'success': True, 'count': imported_count}), 200
     except Exception as e:
+        logger.error(f"❌ Error importing XLSX: {e}", exc_info=True)
         return jsonify({'error': str(e)}), 500
 
 @app.route('/download-sample', methods=['GET'])
@@ -370,8 +435,9 @@ def download_sample():
             download_name='sample_import.csv'
         )
     except Exception as e:
+        logger.error(f"Error downloading sample: {e}")
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
+    logger.info("Starting Flask app...")
     app.run(debug=True, host='127.0.0.1', port=5000)
-
