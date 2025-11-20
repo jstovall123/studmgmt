@@ -8,8 +8,9 @@ from dotenv import load_dotenv
 
 app = Flask(__name__)
 
-# Load environment variables from .env file
-load_dotenv()
+# Load environment variables from .env file (explicitly specify the path)
+env_path = Path(__file__).parent / '.env'
+load_dotenv(env_path)
 
 # Configuration
 DATA_DIR = Path(__file__).parent / 'data'
