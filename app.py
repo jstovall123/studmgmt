@@ -126,7 +126,7 @@ def check_first_setup():
 
 @app.route('/api/teachers', methods=['GET'])
 def get_teachers():
-    """Get list of all teachers. Any teacher can view."""
+    """Get list of all teachers. Only Teacher Manager can view."""
     if not is_logged_in():
         return jsonify({'error': 'Not logged in'}), 401
     
@@ -134,14 +134,14 @@ def get_teachers():
         users = load_users()
         current_user = session.get('user_id')
         
-        # Any logged-in teacher can view teachers list
-        if current_user not in users:
-            return jsonify({'error': 'Unauthorized'}), 403
+        # Only Teacher Manager can view/manage teachers
+        if current_user not in users or users[current_user].get('role') != 'Teacher Manager':
+            return jsonify({'error': 'Unauthorized - only Teacher Managers can manage users'}), 403
         
         teachers = [
-            {'username': u['username'], 'role': u.get('role', 'teacher'), 'created_at': u.get('created_at')}
+            {'username': u['username'], 'role': u.get('role', 'Teacher'), 'created_at': u.get('created_at')}
             for u in users.values()
-            if u.get('role') == 'teacher'
+            if u.get('role') in ('Teacher', 'Teacher Manager')
         ]
         
         return jsonify(teachers), 200
@@ -151,7 +151,7 @@ def get_teachers():
 
 @app.route('/api/teachers/<username>', methods=['DELETE'])
 def delete_teacher(username):
-    """Delete a teacher account. Cannot delete yourself or only teacher."""
+    """Delete a teacher account. Only Teacher Manager can delete."""
     if not is_logged_in():
         return jsonify({'error': 'Not logged in'}), 401
     
@@ -159,9 +159,9 @@ def delete_teacher(username):
         users = load_users()
         current_user = session.get('user_id')
         
-        # Any logged-in teacher can delete other teachers
-        if current_user not in users:
-            return jsonify({'error': 'Unauthorized'}), 403
+        # Only Teacher Manager can delete teachers
+        if current_user not in users or users[current_user].get('role') != 'Teacher Manager':
+            return jsonify({'error': 'Unauthorized - only Teacher Managers can manage users'}), 403
         
         # Cannot delete yourself
         if username == current_user:
@@ -198,24 +198,25 @@ def register():
             return jsonify({'error': 'Password must be at least 6 characters'}), 400
         
         users = load_users()
-        teacher_count = sum(1 for u in users.values() if u.get('role') == 'teacher')
+        teacher_count = sum(1 for u in users.values() if u.get('role') in ('Teacher', 'Teacher Manager'))
         
-        # After first teacher exists, only logged-in teachers can create new accounts
+        # After first teacher exists, only Teacher Manager can create new accounts
         if teacher_count > 0:
             if not is_logged_in():
                 return jsonify({'error': 'You must be logged in to create accounts'}), 401
             
-            # Check if logged-in user is a teacher (they can create accounts)
+            # Check if logged-in user is Teacher Manager
             current_user = session.get('user_id')
-            if current_user not in users:
-                return jsonify({'error': 'Unauthorized'}), 403
+            if current_user not in users or users[current_user].get('role') != 'Teacher Manager':
+                return jsonify({'error': 'Only Teacher Managers can create new accounts'}), 403
         
         if username in users:
             return jsonify({'error': 'Username already exists'}), 409
         
-        # First teacher gets teacher role (can manage other teachers)
-        # Subsequent teachers get regular teacher role
-        role = 'teacher'
+        # First teacher gets "Teacher Manager" role
+        # Subsequent teachers get "Teacher" role by default (unless specified)
+        requested_role = data.get('role', 'Teacher')
+        role = 'Teacher Manager' if teacher_count == 0 else requested_role
         
         users[username] = {
             'username': username,

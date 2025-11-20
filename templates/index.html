@@ -239,6 +239,13 @@
                             <input type="password" id="new-teacher-password" placeholder="Password (min 6 chars)" class="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-[#103a52] focus:border-[#103a52]">
                         </div>
                     </div>
+                    <div>
+                        <label class="block text-xs font-semibold text-[#103a52] mb-1">Role</label>
+                        <select id="new-teacher-role" class="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-[#103a52] focus:border-[#103a52] bg-white">
+                            <option value="Teacher">Teacher (can edit students)</option>
+                            <option value="Teacher Manager">Teacher Manager (can manage users)</option>
+                        </select>
+                    </div>
                     <button type="submit" class="w-full p-2 bg-[#fc4a4b] text-white text-sm font-bold rounded-lg hover:bg-[#e03a3b] transition">Create Account</button>
                     <p id="create-teacher-error" class="text-red-600 text-sm text-center hidden"></p>
                     <p id="create-teacher-success" class="text-green-600 text-sm text-center hidden"></p>
@@ -978,6 +985,7 @@
             e.preventDefault();
             const username = document.getElementById('new-teacher-username').value.trim();
             const password = document.getElementById('new-teacher-password').value;
+            const role = document.getElementById('new-teacher-role').value;
             const errorEl = document.getElementById('create-teacher-error');
             const successEl = document.getElementById('create-teacher-success');
 
@@ -999,7 +1007,7 @@
                 const response = await fetch('/api/register', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, password })
+                    body: JSON.stringify({ username, password, role })
                 });
 
                 if (!response.ok) {
@@ -1011,7 +1019,7 @@
                 }
 
                 errorEl.classList.add('hidden');
-                successEl.textContent = `✓ Teacher "${username}" created successfully!`;
+                successEl.textContent = `✓ ${role} "${username}" created successfully!`;
                 successEl.classList.remove('hidden');
                 document.getElementById('new-teacher-username').value = '';
                 document.getElementById('new-teacher-password').value = '';
