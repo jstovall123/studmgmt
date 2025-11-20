@@ -139,7 +139,11 @@ def delete_student(student_id):
 def generate_recommendations(student_id):
     """Generate song recommendations for a student."""
     try:
+        print(f"DEBUG: API_KEY exists: {bool(API_KEY)}", flush=True)
+        print(f"DEBUG: API_KEY value: {API_KEY[:20] if API_KEY else 'NONE'}", flush=True)
+        
         if not API_KEY:
+            print("ERROR: API_KEY not configured", flush=True)
             return jsonify({'error': 'Gemini API key not configured'}), 500
         
         students_dict = load_students()
