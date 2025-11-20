@@ -317,9 +317,9 @@
                                 class="w-full text-xs p-2 rounded-lg bg-[#fc4a4b] text-white hover:bg-[#e03a3b] transition">
                                 ${student.lessonPlan ? 'View/Regen Plan' : 'Generate Plan'}
                             </button>
-                            <button onclick="window.generateAndShowJourneyReport('${student.id}')"
+                            <button onclick="window.handleJourneyReportClick('${student.id}')"
                                 class="w-full text-xs p-2 rounded-lg bg-[#103a52] text-white hover:bg-[#0a283f] transition">
-                                ✨ Journey Report
+                                ${student.journeyReport ? 'View/Regen Report' : '✨ Generate Report'}
                             </button>
                             <button onclick="window.showDeleteConfirm('${student.id}', '${escapeQuotes(student.name)}')"
                                 class="w-full text-xs p-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition">
@@ -564,7 +564,20 @@
         }
 
         // --- JOURNEY REPORT ---
-        window.generateAndShowJourneyReport = async function(studentId) {
+        window.handleJourneyReportClick = function(studentId) {
+            const student = globalStudentsCache[studentId];
+            if (!student) return showAlert("Student data not found.");
+            
+            if (student.journeyReport) {
+                const reportHTML = convertMarkdownToHTML(student.journeyReport);
+                const actionsHTML = `<button onclick="window.generateAndShowJourneyReport('${student.id}', true)" class="p-2 bg-[#fad9b0] text-[#103a52] font-bold rounded-lg hover:bg-[#f8c68c] transition">Regenerate</button>`;
+                showModal(`${student.name} - Journey Report`, reportHTML, actionsHTML);
+            } else {
+                window.generateAndShowJourneyReport(student.id, false);
+            }
+        }
+
+        window.generateAndShowJourneyReport = async function(studentId, isRegenerating = false) {
             const student = globalStudentsCache[studentId];
             if (!student) return showAlert("Student data not found.");
             
@@ -579,8 +592,10 @@
                 if (!response.ok) throw new Error('Failed to generate journey report');
                 
                 const result = await response.json();
-                const noteHTML = convertMarkdownToHTML(result.journeyReport);
-                showModal(`${student.name} - Journey Report`, noteHTML, '');
+                const reportHTML = convertMarkdownToHTML(result.journeyReport);
+                const actionsHTML = `<button onclick="window.generateAndShowJourneyReport('${student.id}', true)" class="p-2 bg-[#fad9b0] text-[#103a52] font-bold rounded-lg hover:bg-[#f8c68c] transition">Regenerate</button>`;
+                showModal(`${student.name} - Journey Report`, reportHTML, actionsHTML);
+                loadStudents();
             } catch (error) {
                 console.error('Error generating journey report:', error);
                 closeModal();

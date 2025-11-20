@@ -112,6 +112,7 @@ def add_student():
             'lessonNoteHistory': '',
             'recommendations': json.dumps([]),
             'lessonPlan': '',
+            'journeyReport': '',
             'timestamp': datetime.now().isoformat(),
             'ownerId': 'local-user'
         }
@@ -335,6 +336,10 @@ Lesson Note History: {student.get('lessonNoteHistory') or 'Not specified'}"""
         response = model.generate_content(user_query)
         
         report_text = response.text
+        
+        # Save to student record
+        student['journeyReport'] = report_text
+        save_students(students_dict)
         
         logger.info("✓ Journey report generated successfully")
         return jsonify({'journeyReport': report_text}), 200
