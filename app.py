@@ -211,9 +211,12 @@ Student Lesson History: {student.get('lessonNoteHistory') or 'Not specified'}"""
         response = model.generate_content(user_query)
         
         logger.info("Gemini API response received")
+        logger.info(f"Response object: {response}")
+        logger.info(f"Response text: {response.text if hasattr(response, 'text') else 'NO TEXT ATTR'}")
         
         # Parse the response
-        response_text = response.text.strip()
+        response_text = response.text.strip() if hasattr(response, 'text') else ''
+        logger.info(f"Response text after strip: '{response_text}'")
         recommendations = json.loads(response_text)
         
         # Save to student record
