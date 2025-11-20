@@ -260,12 +260,20 @@ server {
 }
 EOF
 
-# Enable the site
+# Enable the studmgmt site
 if [ ! -L /etc/nginx/sites-enabled/studmgmt ]; then
     ln -s /etc/nginx/sites-available/studmgmt /etc/nginx/sites-enabled/studmgmt
     echo -e "${GREEN}✓ Nginx site enabled${NC}"
 else
     echo -e "${GREEN}✓ Nginx site already enabled${NC}"
+fi
+
+# Disable default Nginx site (so studmgmt is the primary site)
+if [ -L /etc/nginx/sites-enabled/default ]; then
+    rm /etc/nginx/sites-enabled/default
+    echo -e "${GREEN}✓ Default Nginx site disabled${NC}"
+else
+    echo -e "${GREEN}✓ Default site already disabled${NC}"
 fi
 
 # Test nginx configuration
