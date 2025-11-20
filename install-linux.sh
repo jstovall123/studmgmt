@@ -72,6 +72,12 @@ else
     echo -e "${GREEN}✓ Directory '$INSTALL_DIR' already exists${NC}"
 fi
 
+# Step 3.5: Fix permissions (handles case where cloned as root)
+echo -e "${YELLOW}🔐 Step 3.5: Fixing directory permissions...${NC}"
+chown -R "$APP_USER:$APP_GROUP" "$INSTALL_DIR"
+chmod -R u+w "$INSTALL_DIR"
+echo -e "${GREEN}✓ Permissions fixed${NC}"
+
 # Step 4: Create virtual environment
 echo -e "${YELLOW}🐍 Step 4: Creating Python virtual environment...${NC}"
 sudo -u "$APP_USER" python3 -m venv "$VENV_DIR"
