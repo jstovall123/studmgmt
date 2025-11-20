@@ -124,6 +124,61 @@ def check_first_setup():
         logger.error(f"First setup check error: {e}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/teachers', methods=['GET'])
+def get_teachers():
+    """Get list of all teachers."""
+    if not is_logged_in():
+        return jsonify({'error': 'Not logged in'}), 401
+    
+    try:
+        users = load_users()
+        current_user = session.get('user_id')
+        
+        # Only admin can view teachers list
+        if current_user not in users or users[current_user].get('role') != 'admin':
+            return jsonify({'error': 'Unauthorized'}), 403
+        
+        teachers = [
+            {'username': u['username'], 'role': u.get('role', 'teacher'), 'created_at': u.get('created_at')}
+            for u in users.values()
+            if u.get('role') != 'admin'
+        ]
+        
+        return jsonify(teachers), 200
+    except Exception as e:
+        logger.error(f"Get teachers error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/teachers/<username>', methods=['DELETE'])
+def delete_teacher(username):
+    """Delete a teacher account. Cannot delete admin."""
+    if not is_logged_in():
+        return jsonify({'error': 'Not logged in'}), 401
+    
+    try:
+        # Cannot delete admin account
+        if username == 'admin':
+            return jsonify({'error': 'Cannot delete admin account'}), 400
+        
+        users = load_users()
+        current_user = session.get('user_id')
+        
+        # Only admin can delete teachers
+        if current_user not in users or users[current_user].get('role') != 'admin':
+            return jsonify({'error': 'Unauthorized'}), 403
+        
+        if username not in users:
+            return jsonify({'error': 'Teacher not found'}), 404
+        
+        del users[username]
+        save_users(users)
+        
+        logger.info(f"Teacher deleted: {username}")
+        return jsonify({'success': True, 'message': f'Teacher {username} deleted successfully'}), 200
+    except Exception as e:
+        logger.error(f"Delete teacher error: {e}")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/register', methods=['POST'])
 def register():
     """Register a new teacher account. Only admin can create after first setup."""
