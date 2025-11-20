@@ -211,12 +211,22 @@ Student Lesson History: {student.get('lessonNoteHistory') or 'Not specified'}"""
         response = model.generate_content(user_query)
         
         logger.info("Gemini API response received")
-        logger.info(f"Response object: {response}")
-        logger.info(f"Response text: {response.text if hasattr(response, 'text') else 'NO TEXT ATTR'}")
         
         # Parse the response
-        response_text = response.text.strip() if hasattr(response, 'text') else ''
-        logger.info(f"Response text after strip: '{response_text}'")
+        response_text = response.text.strip()
+        
+        # Remove markdown code fence if present
+        if response_text.startswith('```json'):
+            response_text = response_text[7:]  # Remove ```json
+        elif response_text.startswith('```'):
+            response_text = response_text[3:]  # Remove ```
+        
+        if response_text.endswith('```'):
+            response_text = response_text[:-3]  # Remove trailing ```
+        
+        response_text = response_text.strip()
+        logger.info(f"Cleaned response: {response_text[:100]}")
+        
         recommendations = json.loads(response_text)
         
         # Save to student record
