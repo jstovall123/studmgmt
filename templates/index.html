@@ -824,9 +824,12 @@
                     document.getElementById('current-user').textContent = data.username;
                     
                     // Show admin button only if user is Teacher Manager
+                    console.log('User role:', data.role);
                     if (data.role === 'Teacher Manager') {
+                        console.log('Showing admin button');
                         document.getElementById('admin-panel-btn').classList.remove('hidden');
                     } else {
+                        console.log('Hiding admin button - user is not Teacher Manager');
                         document.getElementById('admin-panel-btn').classList.add('hidden');
                     }
                     

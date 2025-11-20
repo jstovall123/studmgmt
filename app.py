@@ -98,6 +98,24 @@ def init_default_admin():
         }
         save_users(users)
         logger.info("✓ Default admin user created (username: admin, password: admin)")
+    else:
+        # Migrate old role names to new format
+        changed = False
+        for username, user in users.items():
+            old_role = user.get('role')
+            if old_role == 'teacher_manager':
+                user['role'] = 'Teacher Manager'
+                changed = True
+                logger.info(f"Migrated {username} from 'teacher_manager' to 'Teacher Manager'")
+            elif old_role == 'teacher':
+                user['role'] = 'Teacher'
+                changed = True
+                logger.info(f"Migrated {username} from 'teacher' to 'Teacher'")
+        
+        if changed:
+            save_users(users)
+            logger.info("✓ User roles migrated to new format")
+    
     return users
 
 init_default_admin()
