@@ -95,8 +95,8 @@
                 <div class="relative flex justify-center text-sm"><span class="px-2 bg-white text-gray-600">Or</span></div>
             </div>
 
-            <!-- Register Form -->
-            <form id="register-form" class="space-y-4">
+            <!-- Register Form (hidden until needed) -->
+            <form id="register-form" class="space-y-4 hidden">
                 <div>
                     <label class="block text-sm font-semibold text-[#103a52] mb-1">New Username</label>
                     <input type="text" id="register-username" placeholder="Create username" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-[#103a52] focus:border-[#103a52]">
@@ -107,6 +107,27 @@
                 </div>
                 <button type="submit" class="w-full p-3 bg-[#103a52] text-white font-bold rounded-lg hover:bg-[#0a283f] transition">Create Account</button>
                 <p id="register-error" class="text-red-600 text-sm text-center hidden"></p>
+            </form>
+        </div>
+    </div>
+
+    <!-- FIRST SETUP SCREEN - Create first teacher -->
+    <div id="first-setup-screen" class="fixed inset-0 bg-gradient-to-br from-[#103a52] to-[#0a283f] flex items-center justify-center p-4 z-50 hidden">
+        <div class="container-card w-full max-w-md p-8">
+            <h1 class="text-3xl font-extrabold text-center mb-2 font-heading">Welcome!</h1>
+            <p class="text-center text-gray-600 mb-6">Create your first teacher account to get started.</p>
+            
+            <form id="first-teacher-form" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold text-[#103a52] mb-1">Teacher Username</label>
+                    <input type="text" id="first-teacher-username" required placeholder="Choose username" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-[#103a52] focus:border-[#103a52]">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-[#103a52] mb-1">Teacher Password</label>
+                    <input type="password" id="first-teacher-password" required placeholder="Create password (min 6 chars)" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-[#103a52] focus:border-[#103a52]">
+                </div>
+                <button type="submit" class="w-full p-3 bg-[#fc4a4b] text-white font-bold rounded-lg hover:bg-[#e03a3b] transition">Create Account & Continue</button>
+                <p id="first-setup-error" class="text-red-600 text-sm text-center hidden"></p>
             </form>
         </div>
     </div>
@@ -124,7 +145,10 @@
                 </div>
                 <div class="text-right">
                     <p class="text-sm text-gray-600 mb-2">Logged in as: <span id="current-user" class="font-bold text-[#103a52]"></span></p>
-                    <button onclick="handleLogout()" class="p-2 px-4 bg-red-600 text-white text-sm font-bold rounded-lg hover:bg-red-700 transition">Logout</button>
+                    <div class="flex gap-2 justify-end">
+                        <button id="admin-panel-btn" onclick="toggleAdminPanel()" class="p-2 px-4 bg-[#103a52] text-white text-sm font-bold rounded-lg hover:bg-[#0a283f] transition hidden">👤 Manage Users</button>
+                        <button onclick="handleLogout()" class="p-2 px-4 bg-red-600 text-white text-sm font-bold rounded-lg hover:bg-red-700 transition">Logout</button>
+                    </div>
                 </div>
             </div>
         <header class="text-center mb-8 hidden">
@@ -188,6 +212,32 @@
                 <p id="empty-list-message" class="text-center text-gray-500 p-8 hidden">No students added yet. Use the form above to begin tracking!</p>
             </div>
         </section>
+        </div>
+    </div>
+
+    <!-- Admin Panel Modal -->
+    <div id="admin-modal" class="fixed inset-0 bg-gray-600 bg-opacity-75 hidden items-center justify-center p-4 z-50">
+        <div class="container-card w-full max-w-md p-6">
+            <div class="flex justify-between items-start mb-4">
+                <h3 class="text-2xl font-bold font-heading">Manage Teachers</h3>
+                <button onclick="toggleAdminPanel()" class="text-gray-400 hover:text-gray-600 transition">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+            </div>
+            
+            <form id="create-teacher-form" class="space-y-4 mb-6">
+                <div>
+                    <label class="block text-sm font-semibold text-[#103a52] mb-1">Username</label>
+                    <input type="text" id="new-teacher-username" placeholder="Username" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-[#103a52] focus:border-[#103a52]">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-[#103a52] mb-1">Password</label>
+                    <input type="password" id="new-teacher-password" placeholder="Password (min 6 chars)" class="w-full p-2 border border-gray-300 rounded-lg focus:ring-[#103a52] focus:border-[#103a52]">
+                </div>
+                <button type="submit" class="w-full p-2 bg-[#fc4a4b] text-white font-bold rounded-lg hover:bg-[#e03a3b] transition">Create Teacher Account</button>
+                <p id="create-teacher-error" class="text-red-600 text-sm text-center hidden"></p>
+                <p id="create-teacher-success" class="text-green-600 text-sm text-center hidden"></p>
+            </form>
         </div>
     </div>
 
@@ -738,6 +788,8 @@
         }
 
         // --- AUTHENTICATION ---
+        let currentUserRole = null;
+
         async function checkAuth() {
             try {
                 const response = await fetch('/api/current-user');
@@ -746,19 +798,50 @@
                 if (data.user_id) {
                     // User is logged in
                     document.getElementById('login-screen').classList.add('hidden');
+                    document.getElementById('first-setup-screen').classList.add('hidden');
                     document.getElementById('app-container').classList.remove('hidden');
                     document.getElementById('current-user').textContent = data.username;
+                    
+                    // Store user role (check if admin for showing manage users button)
+                    checkIfAdmin(data.user_id);
                     loadStudents();
                 } else {
-                    // Not logged in - show login screen
-                    document.getElementById('login-screen').classList.remove('hidden');
-                    document.getElementById('app-container').classList.add('hidden');
+                    // Not logged in - check if setup needed
+                    const setupResponse = await fetch('/api/check-first-setup');
+                    const setupData = await setupResponse.json();
+                    
+                    if (setupData.needs_setup) {
+                        // First setup - show first teacher creation screen
+                        document.getElementById('login-screen').classList.add('hidden');
+                        document.getElementById('first-setup-screen').classList.remove('hidden');
+                        document.getElementById('app-container').classList.add('hidden');
+                    } else {
+                        // Normal login
+                        document.getElementById('login-screen').classList.remove('hidden');
+                        document.getElementById('first-setup-screen').classList.add('hidden');
+                        document.getElementById('app-container').classList.add('hidden');
+                    }
                 }
             } catch (error) {
                 console.error('Auth check failed:', error);
                 document.getElementById('login-screen').classList.remove('hidden');
+                document.getElementById('first-setup-screen').classList.add('hidden');
                 document.getElementById('app-container').classList.add('hidden');
             }
+        }
+
+        async function checkIfAdmin(userId) {
+            // Simple check - if user is admin, show admin panel button
+            // We can tell by trying the create user endpoint, but for now we'll assume
+            // the user will be admin if they logged in first
+            // TODO: Add role info to current-user endpoint
+            document.getElementById('admin-panel-btn').classList.remove('hidden');
+        }
+
+        window.toggleAdminPanel = function() {
+            const modal = document.getElementById('admin-modal');
+            modal.classList.toggle('hidden');
+            modal.classList.toggle('flex');
         }
 
         window.handleLogout = async function() {
@@ -770,6 +853,100 @@
                 alert('Logout failed');
             }
         }
+
+        // First teacher form (initial setup)
+        document.getElementById('first-teacher-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const username = document.getElementById('first-teacher-username').value.trim();
+            const password = document.getElementById('first-teacher-password').value;
+            const errorEl = document.getElementById('first-setup-error');
+
+            if (!username || !password) {
+                errorEl.textContent = 'Please fill in all fields';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+
+            if (password.length < 6) {
+                errorEl.textContent = 'Password must be at least 6 characters';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    errorEl.textContent = error.error || 'Account creation failed';
+                    errorEl.classList.remove('hidden');
+                    return;
+                }
+
+                errorEl.classList.add('hidden');
+                document.getElementById('first-teacher-username').value = '';
+                document.getElementById('first-teacher-password').value = '';
+                checkAuth();
+            } catch (error) {
+                console.error('Account creation error:', error);
+                errorEl.textContent = 'Account creation failed: ' + error.message;
+                errorEl.classList.remove('hidden');
+            }
+        });
+
+        // Create teacher form (admin panel)
+        document.getElementById('create-teacher-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const username = document.getElementById('new-teacher-username').value.trim();
+            const password = document.getElementById('new-teacher-password').value;
+            const errorEl = document.getElementById('create-teacher-error');
+            const successEl = document.getElementById('create-teacher-success');
+
+            if (!username || !password) {
+                errorEl.textContent = 'Please fill in all fields';
+                errorEl.classList.remove('hidden');
+                successEl.classList.add('hidden');
+                return;
+            }
+
+            if (password.length < 6) {
+                errorEl.textContent = 'Password must be at least 6 characters';
+                errorEl.classList.remove('hidden');
+                successEl.classList.add('hidden');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    errorEl.textContent = error.error || 'Failed to create account';
+                    errorEl.classList.remove('hidden');
+                    successEl.classList.add('hidden');
+                    return;
+                }
+
+                errorEl.classList.add('hidden');
+                successEl.textContent = `✓ Teacher "${username}" created successfully!`;
+                successEl.classList.remove('hidden');
+                document.getElementById('new-teacher-username').value = '';
+                document.getElementById('new-teacher-password').value = '';
+            } catch (error) {
+                console.error('Account creation error:', error);
+                errorEl.textContent = 'Failed to create account: ' + error.message;
+                errorEl.classList.remove('hidden');
+                successEl.classList.add('hidden');
+            }
+        });
 
         // Login form
         document.getElementById('login-form').addEventListener('submit', async function(e) {

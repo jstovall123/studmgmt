@@ -57,6 +57,23 @@ else:
 DATA_DIR.mkdir(exist_ok=True)
 logger.info(f"Data directory ready: {DATA_DIR}")
 
+# Initialize default admin user if no users exist
+def init_default_admin():
+    """Create default admin user if users database is empty."""
+    users = load_users()
+    if not users:
+        users['admin'] = {
+            'username': 'admin',
+            'password': generate_password_hash('admin'),
+            'role': 'admin',
+            'created_at': datetime.now().isoformat()
+        }
+        save_users(users)
+        logger.info("✓ Default admin user created (username: admin, password: admin)")
+    return users
+
+init_default_admin()
+
 def load_students():
     """Load students from JSON file."""
     if STUDENTS_FILE.exists():
@@ -96,9 +113,20 @@ def index():
 
 # --- AUTHENTICATION ENDPOINTS ---
 
+@app.route('/api/check-first-setup', methods=['GET'])
+def check_first_setup():
+    """Check if this is the first setup (only admin exists)."""
+    try:
+        users = load_users()
+        teacher_count = sum(1 for u in users.values() if u.get('role') != 'admin')
+        return jsonify({'needs_setup': teacher_count == 0}), 200
+    except Exception as e:
+        logger.error(f"First setup check error: {e}")
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/api/register', methods=['POST'])
 def register():
-    """Register a new teacher account."""
+    """Register a new teacher account. Only admin can create after first setup."""
     try:
         data = request.json
         username = data.get('username', '').strip()
@@ -111,6 +139,17 @@ def register():
             return jsonify({'error': 'Password must be at least 6 characters'}), 400
         
         users = load_users()
+        teacher_count = sum(1 for u in users.values() if u.get('role') != 'admin')
+        
+        # If teachers already exist, only logged-in admin can create new accounts
+        if teacher_count > 0:
+            if not is_logged_in():
+                return jsonify({'error': 'You must be logged in as admin to create accounts'}), 401
+            
+            # Check if logged-in user is admin
+            current_user = session.get('user_id')
+            if current_user not in users or users[current_user].get('role') != 'admin':
+                return jsonify({'error': 'Only admin can create new accounts'}), 403
         
         if username in users:
             return jsonify({'error': 'Username already exists'}), 409
@@ -118,19 +157,15 @@ def register():
         users[username] = {
             'username': username,
             'password': generate_password_hash(password),
+            'role': 'teacher',
             'created_at': datetime.now().isoformat()
         }
         
         save_users(users)
-        logger.info(f"New user registered: {username}")
-        
-        # Auto-login after registration
-        session['user_id'] = username
-        session['username'] = username
+        logger.info(f"New teacher account created: {username}")
         
         return jsonify({
             'success': True,
-            'user_id': username,
             'username': username
         }), 201
     except Exception as e:
