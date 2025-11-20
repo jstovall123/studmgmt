@@ -4,8 +4,12 @@ import os
 from datetime import datetime
 import google.generativeai as genai
 from pathlib import Path
+from dotenv import load_dotenv
 
 app = Flask(__name__)
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Configuration
 DATA_DIR = Path(__file__).parent / 'data'
