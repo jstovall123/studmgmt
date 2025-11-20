@@ -126,7 +126,7 @@ def check_first_setup():
 
 @app.route('/api/teachers', methods=['GET'])
 def get_teachers():
-    """Get list of all teachers."""
+    """Get list of all teachers. Any teacher can view."""
     if not is_logged_in():
         return jsonify({'error': 'Not logged in'}), 401
     
@@ -134,14 +134,14 @@ def get_teachers():
         users = load_users()
         current_user = session.get('user_id')
         
-        # Only admin can view teachers list
-        if current_user not in users or users[current_user].get('role') != 'admin':
+        # Any logged-in teacher can view teachers list
+        if current_user not in users:
             return jsonify({'error': 'Unauthorized'}), 403
         
         teachers = [
             {'username': u['username'], 'role': u.get('role', 'teacher'), 'created_at': u.get('created_at')}
             for u in users.values()
-            if u.get('role') != 'admin'
+            if u.get('role') == 'teacher'
         ]
         
         return jsonify(teachers), 200
@@ -151,21 +151,25 @@ def get_teachers():
 
 @app.route('/api/teachers/<username>', methods=['DELETE'])
 def delete_teacher(username):
-    """Delete a teacher account. Cannot delete admin."""
+    """Delete a teacher account. Cannot delete yourself or only teacher."""
     if not is_logged_in():
         return jsonify({'error': 'Not logged in'}), 401
     
     try:
-        # Cannot delete admin account
-        if username == 'admin':
-            return jsonify({'error': 'Cannot delete admin account'}), 400
-        
         users = load_users()
         current_user = session.get('user_id')
         
-        # Only admin can delete teachers
-        if current_user not in users or users[current_user].get('role') != 'admin':
+        # Any logged-in teacher can delete other teachers
+        if current_user not in users:
             return jsonify({'error': 'Unauthorized'}), 403
+        
+        # Cannot delete yourself
+        if username == current_user:
+            return jsonify({'error': 'Cannot delete your own account'}), 400
+        
+        # Cannot delete the admin account
+        if username == 'admin':
+            return jsonify({'error': 'Cannot delete admin account'}), 400
         
         if username not in users:
             return jsonify({'error': 'Teacher not found'}), 404
@@ -181,7 +185,7 @@ def delete_teacher(username):
 
 @app.route('/api/register', methods=['POST'])
 def register():
-    """Register a new teacher account. Only admin can create after first setup."""
+    """Register a new teacher account. First teacher gets admin privileges."""
     try:
         data = request.json
         username = data.get('username', '').strip()
@@ -194,25 +198,29 @@ def register():
             return jsonify({'error': 'Password must be at least 6 characters'}), 400
         
         users = load_users()
-        teacher_count = sum(1 for u in users.values() if u.get('role') != 'admin')
+        teacher_count = sum(1 for u in users.values() if u.get('role') == 'teacher')
         
-        # If teachers already exist, only logged-in admin can create new accounts
+        # After first teacher exists, only logged-in teachers can create new accounts
         if teacher_count > 0:
             if not is_logged_in():
-                return jsonify({'error': 'You must be logged in as admin to create accounts'}), 401
+                return jsonify({'error': 'You must be logged in to create accounts'}), 401
             
-            # Check if logged-in user is admin
+            # Check if logged-in user is a teacher (they can create accounts)
             current_user = session.get('user_id')
-            if current_user not in users or users[current_user].get('role') != 'admin':
-                return jsonify({'error': 'Only admin can create new accounts'}), 403
+            if current_user not in users:
+                return jsonify({'error': 'Unauthorized'}), 403
         
         if username in users:
             return jsonify({'error': 'Username already exists'}), 409
         
+        # First teacher gets teacher role (can manage other teachers)
+        # Subsequent teachers get regular teacher role
+        role = 'teacher'
+        
         users[username] = {
             'username': username,
             'password': generate_password_hash(password),
-            'role': 'teacher',
+            'role': role,
             'created_at': datetime.now().isoformat()
         }
         
