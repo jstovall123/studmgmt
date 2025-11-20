@@ -1,4 +1,5 @@
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, session
+from werkzeug.security import generate_password_hash, check_password_hash
 import json
 import os
 import sys
@@ -9,6 +10,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 app = Flask(__name__)
+app.secret_key = os.getenv('SECRET_KEY', 'your-secret-key-change-me-in-production')
 
 # Set up logging to see all output in systemd journal
 logging.basicConfig(
@@ -32,6 +34,7 @@ else:
 # Configuration
 DATA_DIR = Path(__file__).parent / 'data'
 STUDENTS_FILE = DATA_DIR / 'students.json'
+USERS_FILE = DATA_DIR / 'users.json'
 API_KEY = os.getenv('GEMINI_API_KEY', '')
 
 logger.info(f"API_KEY loaded: {bool(API_KEY)}")
@@ -66,6 +69,22 @@ def save_students(students):
     with open(STUDENTS_FILE, 'w') as f:
         json.dump(students, f, indent=2)
 
+def load_users():
+    """Load users from JSON file."""
+    if USERS_FILE.exists():
+        with open(USERS_FILE, 'r') as f:
+            return json.load(f)
+    return {}
+
+def save_users(users):
+    """Save users to JSON file."""
+    with open(USERS_FILE, 'w') as f:
+        json.dump(users, f, indent=2)
+
+def is_logged_in():
+    """Check if user is logged in."""
+    return 'user_id' in session
+
 def generate_id():
     """Generate a simple ID based on timestamp."""
     return str(int(datetime.now().timestamp() * 1000))
@@ -75,9 +94,111 @@ def index():
     """Serve the main page."""
     return render_template('index.html')
 
+# --- AUTHENTICATION ENDPOINTS ---
+
+@app.route('/api/register', methods=['POST'])
+def register():
+    """Register a new teacher account."""
+    try:
+        data = request.json
+        username = data.get('username', '').strip()
+        password = data.get('password', '').strip()
+        
+        if not username or not password:
+            return jsonify({'error': 'Username and password required'}), 400
+        
+        if len(password) < 6:
+            return jsonify({'error': 'Password must be at least 6 characters'}), 400
+        
+        users = load_users()
+        
+        if username in users:
+            return jsonify({'error': 'Username already exists'}), 409
+        
+        users[username] = {
+            'username': username,
+            'password': generate_password_hash(password),
+            'created_at': datetime.now().isoformat()
+        }
+        
+        save_users(users)
+        logger.info(f"New user registered: {username}")
+        
+        # Auto-login after registration
+        session['user_id'] = username
+        session['username'] = username
+        
+        return jsonify({
+            'success': True,
+            'user_id': username,
+            'username': username
+        }), 201
+    except Exception as e:
+        logger.error(f"Registration error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/login', methods=['POST'])
+def login():
+    """Login a teacher."""
+    try:
+        data = request.json
+        username = data.get('username', '').strip()
+        password = data.get('password', '').strip()
+        
+        if not username or not password:
+            return jsonify({'error': 'Username and password required'}), 400
+        
+        users = load_users()
+        
+        if username not in users:
+            return jsonify({'error': 'Invalid username or password'}), 401
+        
+        user = users[username]
+        
+        if not check_password_hash(user['password'], password):
+            return jsonify({'error': 'Invalid username or password'}), 401
+        
+        session['user_id'] = username
+        session['username'] = username
+        
+        logger.info(f"User logged in: {username}")
+        
+        return jsonify({
+            'success': True,
+            'user_id': username,
+            'username': username
+        }), 200
+    except Exception as e:
+        logger.error(f"Login error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/logout', methods=['POST'])
+def logout():
+    """Logout current user."""
+    try:
+        username = session.get('username', 'unknown')
+        session.clear()
+        logger.info(f"User logged out: {username}")
+        return jsonify({'success': True}), 200
+    except Exception as e:
+        logger.error(f"Logout error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/current-user', methods=['GET'])
+def current_user():
+    """Get current logged-in user."""
+    if 'user_id' in session:
+        return jsonify({
+            'user_id': session['user_id'],
+            'username': session['username']
+        }), 200
+    return jsonify({'user_id': None}), 200
+
 @app.route('/api/students', methods=['GET'])
 def get_students():
     """Get all students."""
+    if not is_logged_in():
+        return jsonify({'error': 'Not logged in'}), 401
     try:
         students_dict = load_students()
         students = list(students_dict.values())
@@ -91,6 +212,8 @@ def get_students():
 @app.route('/api/students', methods=['POST'])
 def add_student():
     """Add a new student."""
+    if not is_logged_in():
+        return jsonify({'error': 'Not logged in'}), 401
     try:
         data = request.json
         
@@ -127,6 +250,8 @@ def add_student():
 @app.route('/api/students/<student_id>', methods=['PUT'])
 def update_student(student_id):
     """Update a student."""
+    if not is_logged_in():
+        return jsonify({'error': 'Not logged in'}), 401
     try:
         data = request.json
         students_dict = load_students()
@@ -154,6 +279,8 @@ def update_student(student_id):
 @app.route('/api/students/<student_id>', methods=['DELETE'])
 def delete_student(student_id):
     """Delete a student."""
+    if not is_logged_in():
+        return jsonify({'error': 'Not logged in'}), 401
     try:
         students_dict = load_students()
         
@@ -176,6 +303,9 @@ def delete_student(student_id):
 @app.route('/api/students/<student_id>/recommendations', methods=['POST'])
 def generate_recommendations(student_id):
     """Generate song recommendations for a student."""
+    if not is_logged_in():
+        return jsonify({'error': 'Not logged in'}), 401
+    
     logger.info(f"Generating recommendations for student: {student_id}")
     logger.info(f"API_KEY present: {bool(API_KEY)}")
     
@@ -245,6 +375,9 @@ Student Lesson History: {student.get('lessonNoteHistory') or 'Not specified'}"""
 @app.route('/api/students/<student_id>/lesson-plan', methods=['POST'])
 def generate_lesson_plan(student_id):
     """Generate an 8-week lesson plan for a student."""
+    if not is_logged_in():
+        return jsonify({'error': 'Not logged in'}), 401
+    
     logger.info(f"Generating lesson plan for student: {student_id}")
     
     try:
@@ -291,6 +424,9 @@ Lesson Note History: {student.get('lessonNoteHistory') or 'Not specified'}"""
 @app.route('/api/students/<student_id>/journey-report', methods=['POST'])
 def generate_journey_report(student_id):
     """Generate a musician's journey report for a student."""
+    if not is_logged_in():
+        return jsonify({'error': 'Not logged in'}), 401
+    
     logger.info(f"Generating journey report for student: {student_id}")
     
     try:
@@ -363,6 +499,8 @@ Lesson Note History: {student.get('lessonNoteHistory') or 'Not specified'}"""
 @app.route('/api/import-xlsx', methods=['POST'])
 def import_xlsx():
     """Import students from XLSX file."""
+    if not is_logged_in():
+        return jsonify({'error': 'Not logged in'}), 401
     try:
         if 'file' not in request.files:
             return jsonify({'error': 'No file provided'}), 400

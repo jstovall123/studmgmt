@@ -70,8 +70,64 @@
 </head>
 <body class="p-4 sm:p-8">
 
-    <div class="max-w-7xl mx-auto">
-        <header class="text-center mb-8">
+    <!-- LOGIN SCREEN -->
+    <div id="login-screen" class="fixed inset-0 bg-gradient-to-br from-[#103a52] to-[#0a283f] flex items-center justify-center p-4 z-50">
+        <div class="container-card w-full max-w-md p-8">
+            <h1 class="text-3xl font-extrabold text-center mb-2 font-heading">Music Tracker</h1>
+            <p class="text-center text-gray-600 mb-8">Teacher Portal</p>
+            
+            <!-- Login Form -->
+            <form id="login-form" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold text-[#103a52] mb-1">Username</label>
+                    <input type="text" id="login-username" required placeholder="Enter username" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-[#103a52] focus:border-[#103a52]">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-[#103a52] mb-1">Password</label>
+                    <input type="password" id="login-password" required placeholder="Enter password" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-[#103a52] focus:border-[#103a52]">
+                </div>
+                <button type="submit" class="w-full p-3 bg-[#fc4a4b] text-white font-bold rounded-lg hover:bg-[#e03a3b] transition">Sign In</button>
+                <p id="login-error" class="text-red-600 text-sm text-center hidden"></p>
+            </form>
+
+            <div class="relative my-6">
+                <div class="absolute inset-0 flex items-center"><div class="w-full border-t border-gray-300"></div></div>
+                <div class="relative flex justify-center text-sm"><span class="px-2 bg-white text-gray-600">Or</span></div>
+            </div>
+
+            <!-- Register Form -->
+            <form id="register-form" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold text-[#103a52] mb-1">New Username</label>
+                    <input type="text" id="register-username" placeholder="Create username" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-[#103a52] focus:border-[#103a52]">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-[#103a52] mb-1">New Password</label>
+                    <input type="password" id="register-password" placeholder="Create password (min 6 chars)" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-[#103a52] focus:border-[#103a52]">
+                </div>
+                <button type="submit" class="w-full p-3 bg-[#103a52] text-white font-bold rounded-lg hover:bg-[#0a283f] transition">Create Account</button>
+                <p id="register-error" class="text-red-600 text-sm text-center hidden"></p>
+            </form>
+        </div>
+    </div>
+
+    <div id="app-container" class="hidden">
+        <div class="max-w-7xl mx-auto">
+            <!-- Header with Logout -->
+            <div class="flex justify-between items-center mb-8">
+                <div>
+                    <header class="text-left">
+                        <h1 class="text-4xl font-extrabold font-heading">Music Student Progress Tracker</h1>
+                        <p class="text-gray-600 mt-2">Manage student assignments, generate song recommendations, and create 8-week lesson plans instantly.</p>
+                        <p class="text-sm mt-1 text-gray-500">Local Version • Gemini AI Powered</p>
+                    </header>
+                </div>
+                <div class="text-right">
+                    <p class="text-sm text-gray-600 mb-2">Logged in as: <span id="current-user" class="font-bold text-[#103a52]"></span></p>
+                    <button onclick="handleLogout()" class="p-2 px-4 bg-red-600 text-white text-sm font-bold rounded-lg hover:bg-red-700 transition">Logout</button>
+                </div>
+            </div>
+        <header class="text-center mb-8 hidden">
             <h1 class="text-4xl font-extrabold font-heading">Music Student Progress Tracker</h1>
             <p class="text-gray-600 mt-2">Manage student assignments, generate song recommendations, and create 8-week lesson plans instantly.</p>
             <p class="text-sm mt-1 text-gray-500">Local Version • Gemini AI Powered</p>
@@ -132,6 +188,7 @@
                 <p id="empty-list-message" class="text-center text-gray-500 p-8 hidden">No students added yet. Use the form above to begin tracking!</p>
             </div>
         </section>
+        </div>
     </div>
 
     <!-- Modal for Generated Content -->
@@ -680,8 +737,118 @@
             }
         }
 
-        // Load students on page load
-        loadStudents();
+        // --- AUTHENTICATION ---
+        async function checkAuth() {
+            try {
+                const response = await fetch('/api/current-user');
+                const data = await response.json();
+                
+                if (data.user_id) {
+                    // User is logged in
+                    document.getElementById('login-screen').classList.add('hidden');
+                    document.getElementById('app-container').classList.remove('hidden');
+                    document.getElementById('current-user').textContent = data.username;
+                    loadStudents();
+                } else {
+                    // Not logged in - show login screen
+                    document.getElementById('login-screen').classList.remove('hidden');
+                    document.getElementById('app-container').classList.add('hidden');
+                }
+            } catch (error) {
+                console.error('Auth check failed:', error);
+                document.getElementById('login-screen').classList.remove('hidden');
+                document.getElementById('app-container').classList.add('hidden');
+            }
+        }
+
+        window.handleLogout = async function() {
+            try {
+                await fetch('/api/logout', { method: 'POST' });
+                checkAuth();
+            } catch (error) {
+                console.error('Logout error:', error);
+                alert('Logout failed');
+            }
+        }
+
+        // Login form
+        document.getElementById('login-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const username = document.getElementById('login-username').value.trim();
+            const password = document.getElementById('login-password').value;
+            const errorEl = document.getElementById('login-error');
+
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    errorEl.textContent = error.error || 'Login failed';
+                    errorEl.classList.remove('hidden');
+                    return;
+                }
+
+                errorEl.classList.add('hidden');
+                document.getElementById('login-username').value = '';
+                document.getElementById('login-password').value = '';
+                checkAuth();
+            } catch (error) {
+                console.error('Login error:', error);
+                errorEl.textContent = 'Login failed: ' + error.message;
+                errorEl.classList.remove('hidden');
+            }
+        });
+
+        // Register form
+        document.getElementById('register-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const username = document.getElementById('register-username').value.trim();
+            const password = document.getElementById('register-password').value;
+            const errorEl = document.getElementById('register-error');
+
+            if (!username || !password) {
+                errorEl.textContent = 'Please fill in all fields';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+
+            if (password.length < 6) {
+                errorEl.textContent = 'Password must be at least 6 characters';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    errorEl.textContent = error.error || 'Registration failed';
+                    errorEl.classList.remove('hidden');
+                    return;
+                }
+
+                errorEl.classList.add('hidden');
+                document.getElementById('register-username').value = '';
+                document.getElementById('register-password').value = '';
+                checkAuth();
+            } catch (error) {
+                console.error('Registration error:', error);
+                errorEl.textContent = 'Registration failed: ' + error.message;
+                errorEl.classList.remove('hidden');
+            }
+        });
+
+        // Check auth on page load
+        checkAuth();
     </script>
 </body>
 </html>
